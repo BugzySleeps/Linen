@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Linen
+GenericName=Video Player
+Comment=A calm, light YouTube client
+Exec=linen
+Icon=linen
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=youtube;video;subscriptions;
+StartupWMClass=linen
+StartupNotify=true

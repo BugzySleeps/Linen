@@ -1,0 +1,2580 @@
+// Linen. Dark and calm: frosted panels on near-black, one warm apricot highlight,
+// pill buttons and a few Material 3 Expressive shapes (see shapes.slint).
+
+import "fonts/Manrope.ttf";
+// the icons Linen uses, cut from Material Symbols Rounded (Apache 2.0)
+import "fonts/MaterialSymbolsRounded.ttf";
+import { Shape } from "shapes.slint";
+
+export global Theme {
+    out property <color> bg: #121212;
+    // frosted panels (see-through white over the background)
+    out property <color> surface: #ffffff0c;
+    out property <color> raised: #ffffff17;
+    out property <color> line: #ffffff14;
+    // the same, solid (for things that float over other things)
+    out property <color> solid: #1e1d1c;
+    out property <color> text: #eceae6;
+    out property <color> dim: #a8a49e;
+    out property <color> faint: #7e7a75;
+    out property <color> accent: #f0b892;   // apricot
+    out property <color> on-accent: #3b2314;
+    out property <string> font: "Manrope";
+    out property <string> icons: "Material Symbols Rounded";
+}
+
+// A shape filled with one colour, with something (an icon, a letter) on top.
+component Blob inherits Rectangle {
+    in property <string> shape: Shape.cookie9;
+    in property <color> fill: Theme.accent;
+    Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        commands: root.shape;
+        fill: root.fill;
+    }
+    @children
+}
+
+export global Icon {
+    out property <string> feed: "\u{e8f0}";       // grid_view-ish (view_module)
+    out property <string> subs: "\u{e064}";
+    out property <string> play: "\u{e037}";
+    out property <string> pause: "\u{e034}";
+    out property <string> back: "\u{e5c4}";
+    out property <string> refresh: "\u{e5d5}";
+    out property <string> add: "\u{e145}";
+    out property <string> close: "\u{e5cd}";
+    out property <string> upload: "\u{e2c6}";
+    out property <string> fullscreen: "\u{e5d0}";
+    out property <string> exit-fullscreen: "\u{e5d1}";
+    out property <string> volume: "\u{e050}";
+    out property <string> forward10: "\u{e056}";
+    out property <string> replay10: "\u{e059}";
+    out property <string> search: "\u{e8b6}";
+    out property <string> foryou: "\u{e65f}";      // auto_awesome
+    out property <string> playlist: "\u{e05f}";    // playlist_play
+    out property <string> not-interested: "\u{e8f5}"; // visibility_off
+    out property <string> block: "\u{e14b}";
+    out property <string> check: "\u{e5ca}";
+    out property <string> link: "\u{e157}";
+    out property <string> schedule: "\u{e8b5}";
+    out property <string> like: "\u{e8dc}";
+    out property <string> dislike: "\u{e8db}";
+    out property <string> settings: "\u{e8b8}";
+    out property <string> skip: "\u{e044}";       // skip_next
+    out property <string> home: "\u{e88a}";
+    out property <string> account: "\u{e853}";    // account_circle
+    out property <string> warning: "\u{e002}";
+    out property <string> sync: "\u{e627}";
+    out property <string> calm: "\u{ea35}";       // eco (a leaf)
+    out property <string> bolt: "\u{ea0b}";
+    out property <string> arrow-forward: "\u{e5c8}";
+    out property <string> watch-later: "\u{e924}";
+    out property <string> download: "\u{f090}";
+    out property <string> download-done: "\u{f091}";
+    out property <string> delete: "\u{e872}";
+    out property <string> library: "\u{e04a}";   // video_library
+    out property <string> headphones: "\u{f01f}";
+    out property <string> folder: "\u{e2c7}";
+    out property <string> comment: "\u{e0b9}";
+    out property <string> pin: "\u{f10d}";
+    out property <string> heart: "\u{e87d}";
+    out property <string> playlist-add: "\u{e03b}";
+    out property <string> playlist-added: "\u{e065}";
+    out property <string> box-on: "\u{e834}";
+    out property <string> box-off: "\u{e835}";
+    out property <string> edit: "\u{e3c9}";
+}
+
+export struct VideoItem {
+    id: string,
+    title: string,
+    channel: string,
+    channel-id: string,
+    meta: string,          // "3 hours ago · 12K views"
+    thumb: image,
+    has-thumb: bool,
+    new: bool,
+    progress: float,       // 0..1 watched
+    duration: string,      // badge on the picture: "12:04", or "95 videos" for playlists
+    reason: string,        // For you: why it's here
+    kind: int,             // 0 video, 1 playlist
+    thumb-src: string,     // which picture is shown (original / DeArrow), for refreshes
+    later: bool,           // in Watch later
+    offline: int,          // 0 not downloaded, 1 downloading, 2 downloaded
+    dl-text: string,       // "45%", "312 MB"
+}
+
+// A skippable part of the video, as a mark on the progress bar.
+export struct SegItem {
+    from: float,           // 0..1
+    to: float,
+    color: color,
+}
+
+export struct CatItem {
+    key: string,
+    name: string,
+    desc: string,
+    on: bool,
+}
+
+export global Settings {
+    in property <bool> sponsorblock;
+    in property <[CatItem]> categories;
+    in property <bool> dearrow-titles;
+    in property <bool> dearrow-thumbs;
+    in property <bool> dislikes;
+    in property <int> quality;          // 0 auto, 1 best, 2 data saver
+    callback set(string, bool);         // key, on
+    callback set-quality(int);
+}
+
+export struct ChannelItem {
+    id: string,
+    name: string,
+    avatar: image,
+    has-avatar: bool,
+    sub: string,
+    following: bool,
+}
+
+export struct SaveItem {
+    id: string,
+    name: string,
+    sub: string,        // "On YouTube" / "In Linen"
+    on: bool,           // the video is in it
+}
+
+export struct CommentItem {
+    kind: int,          // 0 a comment, 1 "Show more replies"
+    id: string,         // the comment (for 1: whose replies)
+    author: string,
+    channel-id: string,
+    avatar: image,
+    has-avatar: bool,
+    text: string,
+    when: string,
+    likes: string,
+    replies: string,    // "6 replies"
+    open: bool,         // its replies are showing
+    loading: bool,
+    reply: bool,
+    creator: bool,      // written by the video's channel
+    pinned: bool,
+    hearted: bool,
+}
+
+export struct ChapterItem {
+    label: string,
+    time: string,
+    at: float,
+}
+
+export struct LinkItem {
+    label: string,
+    kind: int,             // 0 web, 1 video, 2 moment in this video
+}
+
+// An account or channel the Firefox sign-in can act as.
+export struct IdentityItem {
+    name: string,
+    handle: string,
+    byline: string,
+    avatar: image,
+    has-avatar: bool,
+}
+
+// Your YouTube account (through Firefox's sign-in).
+export global Account {
+    in property <bool> choosing;        // pick which account/channel
+    in property <[IdentityItem]> choices;
+    callback choose(int);
+    callback open-firefox();            // sign in to another account there
+    in property <bool> connected;
+    in property <string> name;
+    in property <string> handle;
+    in property <image> avatar;
+    in property <bool> has-avatar;
+    in property <bool> busy;
+    in property <string> msg;           // errors and progress
+    in property <int> only-here;        // channels followed in Linen but not on YouTube
+    in property <bool> pushing;
+    callback connect();
+    callback disconnect();
+    callback push-only-here();
+}
+
+// The first-start welcome.
+export global Onboard {
+    in-out property <int> step;         // 0 welcome, 1 account, 2 follow channels
+    in property <[ChannelItem]> suggestions;
+    in property <string> suggestions-title;
+    in property <int> followed;
+    callback find(string);
+    callback finish();
+}
+
+export global Linen {
+    // 0 feed, 1 subscriptions, 2 watch, 3 search, 4 channel, 5 playlist,
+    // 6 settings, 7 welcome, 8 library
+    in-out property <int> page: 0;
+    in property <bool> can-back;
+    callback back();
+    callback nav(int);                 // sidebar: start over at that page
+    // feed: subscriptions + For you
+    in-out property <int> feed-tab: 0;
+    in property <[VideoItem]> feed;
+    in property <string> feed-sub;     // "12 new · updated 2 min ago"
+    in property <bool> refreshing;
+    in property <[VideoItem]> foryou;
+    in property <[VideoItem]> home;
+    in property <bool> home-busy;
+    in property <bool> home-more;
+    in property <string> home-msg;
+    callback load-home(bool);          // more?
+    callback tab-shown(int);
+    in property <string> foryou-sub;
+    in property <bool> foryou-busy;
+    callback rebuild-foryou();
+    callback not-interested(string);   // video id
+    callback hide-channel(string);     // channel id
+    // subscriptions
+    in property <[ChannelItem]> channels;
+    in property <string> subs-msg;
+    in property <bool> adding;
+    callback refresh();
+    callback add-channel(string);
+    callback remove-channel(string);
+    callback import-takeout();
+    callback follow(string, bool);     // channel id, follow?
+    // anywhere
+    callback open-video(string);
+    callback hover-video(string);      // likely next: find its streams early
+    callback open-channel(string);
+    callback open-playlist(string);
+    // search
+    in property <string> query;
+    in property <[ChannelItem]> found-channels;
+    in property <[VideoItem]> results;
+    in property <bool> searching;
+    in property <bool> results-more;
+    in property <string> results-msg;
+    callback search(string);
+    callback more-results();
+    // channel page
+    in property <string> ch-id;
+    in property <string> ch-name;
+    in property <string> ch-meta;
+    in property <string> ch-about;
+    in property <image> ch-avatar;
+    in property <bool> ch-has-avatar;
+    in property <image> ch-banner;
+    in property <bool> ch-has-banner;
+    in property <bool> ch-following;
+    in property <int> ch-tab;          // 0 videos, 1 playlists
+    in property <[VideoItem]> ch-items;
+    in property <bool> ch-loading;
+    in property <bool> ch-more;
+    in property <string> ch-msg;
+    callback ch-set-tab(int);
+    callback ch-load-more();
+    // playlist page
+    in property <string> pl-title;
+    in property <string> pl-by;
+    in property <[VideoItem]> pl-items;
+    in property <bool> pl-loading;
+    in property <bool> pl-more;
+    in property <string> pl-msg;
+    in property <bool> pl-editable;    // one of yours: rename, delete, take videos out
+    callback pl-load-more();
+    callback rename-playlist(string);
+    callback delete-playlist();
+    callback remove-from-playlist(string);
+    // your playlists (Library > Playlists), and the Save box
+    in property <[VideoItem]> my-playlists;
+    in property <int> playlists-count;
+    in property <string> playlists-msg;
+    in-out property <bool> save-open;
+    in property <[SaveItem]> save-lists;
+    callback open-save(string);         // a video id ("": the one playing)
+    callback toggle-save(string);       // a playlist
+    callback new-playlist(string);
+    // library (page 8): Watch later and downloads
+    in-out property <int> lib-tab;     // 0 Watch later, 1 downloads, 2 playlists
+    in property <[VideoItem]> later;
+    in property <int> later-count;
+    in property <[VideoItem]> downloads;
+    in property <int> downloads-count;
+    in property <string> downloads-sub;    // "3 videos · 1.2 GB"
+    in property <string> downloads-folder; // "~/Videos/Linen"
+    in property <string> downloads-msg;    // a download that failed
+    callback toggle-later(string);
+    callback delete-download(string);
+    callback open-downloads-folder();
+}
+
+export global Watch {
+    in property <string> title;
+    in property <string> original-title; // when DeArrow changed it
+    in property <string> channel;
+    in property <string> channel-id;
+    in property <[SegItem]> segments;
+    in property <string> likes;         // "74K"
+    in property <string> dislikes;
+    in property <int> rating;           // yours: 1 liked, -1 disliked, 0 neither
+    callback rate(int);
+    in property <string> skip-msg;      // "Skipped sponsor"
+    // YouTube's wait for the length of the ad it would have shown (seconds)
+    in property <int> ad-left;
+    in property <int> ad-total;
+    callback undo-skip();
+    in property <image> channel-avatar;
+    in property <bool> has-channel-avatar;
+    in property <string> subs;
+    in property <bool> following;
+    in property <string> meta;
+    in property <string> description;
+    in property <[ChapterItem]> chapters;
+    in property <[LinkItem]> links;
+    in property <image> frame;
+    in property <bool> has-video;
+    in property <image> poster;         // the thumbnail, shown until the video starts
+    in property <bool> has-poster;
+    in property <string> status;
+    in property <bool> paused: true;
+    in property <bool> buffering;
+    in property <float> progress;
+    in property <string> pos-text: "0:00";
+    in property <string> dur-text: "0:00";
+    in-out property <float> volume: 0.8;
+    in-out property <bool> fullscreen;
+    // the video keeps playing in a small player while you browse
+    in property <bool> mini;
+    callback expand();
+    callback close-mini();
+    callback toggle();
+    callback seek(float);
+    callback seek-by(float);
+    callback seek-to(float);            // seconds
+    callback open-link(int);
+    callback set-volume(float);
+    callback set-fullscreen(bool);
+    callback cursor-hidden(bool);       // fullscreen + mouse still for 2 s
+    callback leave();
+    // Library
+    in property <bool> later;           // in Watch later
+    callback toggle-later();
+    in property <int> dl-state;         // 0 not downloaded, 1 downloading, 2 downloaded
+    in property <string> dl-text;       // "Downloading 45%"
+    callback download();
+    // listening without the picture (only the sound is fetched)
+    in-out property <bool> audio-only;
+    callback set-audio-only(bool);
+    // where chapters start (0..1), the one playing, and names for the bar's hover
+    in property <[float]> marks;
+    in property <string> chapter;
+    pure callback chapter-at(float) -> string;
+    pure callback time-at(float) -> string;
+    in property <bool> narrow;          // the window is small
+    // comments: folded until asked for (read only)
+    in property <bool> has-comments;
+    in property <string> comment-count;
+    in-out property <bool> comments-shown;
+    in property <bool> comments-busy;
+    in property <bool> comments-more;
+    in-out property <int> comments-sort;   // 0 top, 1 newest
+    in property <string> comments-msg;
+    in property <[CommentItem]> comments;
+    callback show-comments();
+    in property <bool> in-playlist;     // saved in one of your playlists
+    callback save();
+    callback sort-comments(bool);       // newest first
+    callback more-comments();
+    callback toggle-replies(string);
+    callback more-replies(string);
+}
+
+component Glyph inherits Text {
+    font-family: Theme.icons;
+    font-size: 22px;
+    color: Theme.text;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
+
+component Label inherits Text {
+    font-family: Theme.font;
+    font-size: 14px;
+    color: Theme.text;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <length> size: 38px;
+    in property <bool> filled;
+    // an expressive shape instead of a circle (only for filled buttons)
+    in property <string> shape;
+    callback clicked;
+    width: root.size;
+    height: root.size;
+    border-radius: self.width / 2;
+    background: root.shape != "" ? transparent : root.filled ? (touch.has-hover ? Theme.accent.brighter(0.1) : Theme.accent) : touch.has-hover ? Theme.raised : transparent;
+    if root.shape != "": Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: 100;
+        viewbox-height: 100;
+        commands: root.shape;
+        fill: touch.has-hover ? Theme.accent.brighter(0.1) : Theme.accent;
+        // turns a little on hover, like M3 Expressive buttons
+        transform-rotation: touch.has-hover ? 20deg : 0deg;
+        animate transform-rotation { duration: 300ms; easing: ease-out; }
+    }
+    Glyph { text: root.icon; font-size: root.size * 0.55; color: root.filled ? Theme.on-accent : Theme.text; }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Pill inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <bool> filled;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 40px;
+    width: root.text == "" ? 46px : row.preferred-width + 32px;
+    border-radius: 20px;
+    opacity: root.enabled ? 1 : 0.5;
+    background: root.filled ? (touch.has-hover ? Theme.accent.brighter(0.1) : Theme.accent) : touch.has-hover ? Theme.raised : Theme.surface;
+    border-width: root.filled ? 0 : 1px;
+    border-color: Theme.line;
+    row := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        if root.icon != "": Glyph { text: root.icon; font-size: 19px; color: root.filled ? Theme.on-accent : Theme.text; }
+        if root.text != "": Label { text: root.text; font-weight: 650; color: root.filled ? Theme.on-accent : Theme.text; }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// One stop on the side rail: an icon in a pill (apricot when it's the page you're on), the name under it.
+component NavItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> active;
+    callback clicked;
+    width: 72px;
+    height: 62px;
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 4px;
+        width: 56px;
+        height: 34px;
+        border-radius: 17px;
+        background: root.active ? Theme.accent : touch.has-hover ? Theme.raised : transparent;
+        animate background { duration: 150ms; }
+        Glyph { text: root.icon; font-size: 22px; color: root.active ? Theme.on-accent : Theme.dim; }
+    }
+    Label {
+        y: 42px;
+        height: 16px;
+        width: parent.width;
+        horizontal-alignment: center;
+        text: root.label;
+        font-size: 11px;
+        font-weight: root.active ? 800 : 600;
+        color: root.active ? Theme.text : Theme.dim;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A small round button on top of a picture (dark, so it shows on any image).
+component OverlayButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> tip;
+    callback clicked;
+    width: 30px;
+    height: 30px;
+    border-radius: 15px;
+    background: t.has-hover ? #000000dd : #00000099;
+    Glyph { text: root.icon; font-size: 17px; color: white; }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    if t.has-hover && root.tip != "": Rectangle {
+        x: root.width - self.width;
+        y: root.height + 4px;
+        width: tip-text.preferred-width + 16px;
+        height: 24px;
+        border-radius: 6px;
+        background: #000000dd;
+        tip-text := Label { text: root.tip; font-size: 12px; color: white; horizontal-alignment: center; }
+    }
+}
+
+component VideoCard inherits Rectangle {
+    in property <VideoItem> item;
+    // For you: "not interested" buttons on the picture
+    in property <bool> actions;
+    // the downloads list: a delete button on the picture
+    in property <bool> deletable;
+    // one of your playlists: a button to take it out
+    in property <bool> removable;
+    callback open;
+    property <bool> hot: card.has-hover;
+    changed hot => { if self.hot && root.item.kind == 0 { Linen.hover-video(root.item.id); } }
+    // the card is one big button; things inside it (channel name, small buttons)
+    // take their own clicks first, without the card losing its hover
+    card := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.open(); }
+        VerticalLayout {
+            spacing: 10px;
+            pic := Rectangle {
+                height: self.width * 9 / 16;
+                border-radius: 20px;
+                background: Theme.surface;
+                clip: true;
+                if root.item.has-thumb: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: root.item.thumb;
+                    image-fit: cover;
+                }
+                if root.item.kind == 1: Rectangle {
+                    x: parent.width - self.width;
+                    width: 40%;
+                    background: #000000aa;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        Glyph { text: Icon.playlist; font-size: 28px; color: white; }
+                        Label { text: root.item.duration; font-size: 13px; color: white; horizontal-alignment: center; }
+                    }
+                }
+                // watched so far
+                if root.item.progress > 0: Rectangle {
+                    y: parent.height - 4px;
+                    height: 4px;
+                    background: #00000088;
+                    Rectangle { x: 0; width: parent.width * root.item.progress; background: Theme.accent; }
+                }
+                if root.item.kind == 0 && root.item.duration != "": Rectangle {
+                    x: parent.width - self.width - 8px;
+                    y: parent.height - self.height - 8px;
+                    width: dur.preferred-width + 14px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: #121212c0;
+                    dur := Label { text: root.item.duration; font-size: 12px; font-weight: 650; color: white; horizontal-alignment: center; }
+                }
+                if card.has-hover: Rectangle { background: #ffffff10; }
+                // downloaded (or on its way)
+                if root.item.offline > 0: Rectangle {
+                    x: 8px;
+                    y: 8px;
+                    width: off-row.preferred-width + 14px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: root.item.offline == 2 ? #000000b0 : Theme.accent;
+                    off-row := HorizontalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        Glyph { text: root.item.offline == 2 ? Icon.download-done : Icon.download; font-size: 15px; color: root.item.offline == 2 ? white : Theme.on-accent; }
+                        if root.item.offline == 1: Label { text: root.item.dl-text; font-size: 12px; font-weight: 700; color: Theme.on-accent; }
+                    }
+                }
+                if card.has-hover && root.item.kind == 0: HorizontalLayout {
+                    x: parent.width - self.preferred-width - 8px;
+                    y: 8px;
+                    width: self.preferred-width;
+                    height: 30px;
+                    spacing: 6px;
+                    if root.actions: OverlayButton { icon: Icon.not-interested; tip: "Not interested"; clicked => { Linen.not-interested(root.item.id); } }
+                    if root.actions: OverlayButton { icon: Icon.block; tip: "Fewer from this channel"; clicked => { Linen.hide-channel(root.item.channel-id); } }
+                    if root.deletable: OverlayButton { icon: Icon.delete; tip: root.item.offline == 1 ? "Stop and delete" : "Delete download"; clicked => { Linen.delete-download(root.item.id); } }
+                    if root.removable: OverlayButton { icon: Icon.close; tip: "Take out of this playlist"; clicked => { Linen.remove-from-playlist(root.item.id); } }
+                    OverlayButton { icon: Icon.playlist-add; tip: "Save to a playlist"; clicked => { Linen.open-save(root.item.id); } }
+                    OverlayButton {
+                        icon: root.item.later ? Icon.check : Icon.watch-later;
+                        tip: root.item.later ? "Remove from Watch later" : "Watch later";
+                        clicked => { Linen.toggle-later(root.item.id); }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                if root.item.new: Blob {
+                    width: 11px;
+                    height: 11px;
+                    y: 5px;
+                    shape: Shape.sunny;
+                }
+                VerticalLayout {
+                    spacing: 4px;
+                    alignment: start;
+                    Text {
+                        text: root.item.title;
+                        font-family: Theme.font;
+                        font-size: 15px;
+                        font-weight: 700;
+                        color: Theme.text;
+                        wrap: word-wrap;
+                        overflow: elide;
+                        height: Math.min(self.preferred-height, 40px);
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        ch := Label {
+                            text: root.item.channel;
+                            font-size: 13px;
+                            color: ch-touch.has-hover ? Theme.text : Theme.dim;
+                            ch-touch := TouchArea {
+                                enabled: root.item.channel-id != "";
+                                mouse-cursor: pointer;
+                                clicked => { Linen.open-channel(root.item.channel-id); }
+                            }
+                        }
+                    }
+                    Label { text: root.item.meta; font-size: 12px; color: Theme.faint; }
+                    if root.item.reason != "": Label { text: root.item.reason; font-size: 12px; color: Theme.accent.darker(0.15); }
+                }
+            }
+        }
+    }
+}
+
+// Cards in rows; as tall as its rows (sits in a page's scrolling column).
+component Grid inherits Rectangle {
+    in property <[VideoItem]> items;
+    in property <bool> actions;
+    in property <bool> deletable;
+    in property <bool> removable;
+    in property <bool> reasons;
+    property <length> gap: 20px;
+    property <int> cols: Math.max(1, Math.floor((self.width + self.gap) / (300px + self.gap)));
+    property <length> cell: (self.width - (self.cols - 1) * self.gap) / self.cols;
+    property <length> row-h: self.cell * 9 / 16 + 96px + (root.reasons ? 18px : 0px);
+    height: Math.ceil(root.items.length / root.cols) * (root.row-h + root.gap);
+    for v[i] in root.items: VideoCard {
+        x: Math.mod(i, root.cols) * (root.cell + root.gap);
+        y: Math.floor(i / root.cols) * (root.row-h + root.gap);
+        width: root.cell;
+        height: root.row-h;
+        item: v;
+        actions: root.actions;
+        deletable: root.deletable;
+        removable: root.removable;
+        open => {
+            if v.kind == 1 { Linen.open-playlist(v.id); } else { Linen.open-video(v.id); }
+        }
+    }
+}
+
+component PageHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> sub;
+    min-height: 64px;
+    spacing: 12px;
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 1;
+        spacing: 2px;
+        Label { text: root.title; font-size: 28px; font-weight: 800; }
+        if root.sub != "": Label { text: root.sub; font-size: 13px; color: Theme.dim; }
+    }
+    @children
+}
+
+component Tab inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <bool> active;
+    callback clicked;
+    height: 36px;
+    width: row.preferred-width + 32px;
+    border-radius: 18px;
+    background: root.active ? Theme.text : t.has-hover ? Theme.raised : transparent;
+    animate background { duration: 150ms; }
+    row := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        if root.icon != "": Glyph { text: root.icon; font-size: 18px; color: root.active ? Theme.bg : Theme.dim; }
+        Label { text: root.text; font-size: 14px; font-weight: root.active ? 750 : 550; color: root.active ? Theme.bg : Theme.dim; }
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Tabs sit together in one frosted pill.
+component Tabs inherits Rectangle {
+    width: tabs-row.preferred-width;
+    height: 46px;
+    border-radius: 23px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line;
+    tabs-row := HorizontalLayout {
+        padding: 5px;
+        spacing: 2px;
+        @children
+    }
+}
+
+// Type a name, press Enter (or the button).
+component NameBox inherits Rectangle {
+    in property <string> placeholder: "New playlist name";
+    in property <string> button: "Create";
+    in property <string> start;
+    callback done(string);
+    height: 44px;
+    border-radius: 22px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: box.has-focus ? Theme.accent : Theme.line;
+    init => { box.text = root.start; box.focus(); }
+    box := TextInput {
+        x: 18px;
+        width: parent.width - go.width - 30px;
+        font-family: Theme.font;
+        font-size: 14px;
+        color: Theme.text;
+        single-line: true;
+        vertical-alignment: center;
+        accepted => { if self.text != "" { root.done(self.text); self.text = ""; } }
+    }
+    if box.text == "": Label { x: 18px; text: root.placeholder; color: Theme.faint; font-size: 14px; }
+    go := Pill {
+        x: parent.width - self.width - 2px;
+        y: 2px;
+        text: root.button;
+        filled: true;
+        enabled: box.text != "";
+        clicked => { root.done(box.text); box.text = ""; }
+    }
+}
+
+component BackButton inherits HorizontalLayout {
+    alignment: start;
+    if Linen.can-back: Pill { icon: Icon.back; text: "Back"; clicked => { Linen.back(); } }
+}
+
+// Centered message for empty or loading pages.
+component Empty inherits VerticalLayout {
+    in property <string> icon;
+    in property <string> text;
+    alignment: center;
+    spacing: 12px;
+    padding: 40px;
+    if root.icon != "": HorizontalLayout {
+        alignment: center;
+        Blob {
+            width: 104px;
+            height: 104px;
+            shape: Shape.cookie12;
+            fill: Theme.raised;
+            Glyph { text: root.icon; font-size: 46px; color: Theme.accent; }
+        }
+    }
+    Label {
+        text: root.text;
+        horizontal-alignment: center;
+        color: Theme.dim;
+        font-size: 15px;
+        wrap: word-wrap;
+    }
+    @children
+}
+
+component MoreButton inherits HorizontalLayout {
+    in property <bool> busy;
+    callback clicked;
+    alignment: center;
+    padding-bottom: 24px;
+    Pill { text: root.busy ? "Loading…" : "Show more"; enabled: !root.busy; clicked => { root.clicked(); } }
+}
+
+// A channel in a list: picture, name, subscribers, follow button.
+component ChannelRow inherits Rectangle {
+    in property <ChannelItem> item;
+    in property <bool> opens: true;     // clicking the row opens the channel
+    height: 64px;
+    border-radius: 14px;
+    background: t.has-hover && root.opens ? Theme.surface : transparent;
+    t := TouchArea {
+        enabled: root.opens;
+        mouse-cursor: pointer;
+        clicked => { Linen.open-channel(root.item.id); }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 14px;
+        Rectangle {
+            width: 48px;
+            height: 48px;
+            y: 8px;
+            border-radius: 24px;
+            background: Theme.raised;
+            clip: true;
+            if root.item.has-avatar: Image { width: parent.width; height: parent.height; source: root.item.avatar; image-fit: cover; }
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Label { text: root.item.name; font-size: 16px; font-weight: 700; }
+            if root.item.sub != "": Label { text: root.item.sub; font-size: 13px; color: Theme.dim; }
+        }
+        Pill {
+            y: (parent.height - self.height) / 2;
+            icon: root.item.following ? Icon.check : Icon.add;
+            text: root.item.following ? "Following" : "Follow";
+            filled: !root.item.following;
+            clicked => { Linen.follow(root.item.id, !root.item.following); }
+        }
+    }
+}
+
+component FeedPage inherits Rectangle {
+    property <bool> foryou: Linen.feed-tab == 1;
+    property <bool> home: Linen.feed-tab == 2 && Account.connected;
+    property <bool> subs: !self.foryou && !self.home;
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 16px;
+            PageHeader {
+                title: "Feed";
+                sub: root.foryou ? Linen.foryou-sub : root.home ? "What youtube.com recommends you (Shorts left out)" : Linen.feed-sub;
+                IconButton {
+                    icon: Icon.refresh;
+                    y: (parent.height - self.height) / 2;
+                    opacity: (root.foryou ? Linen.foryou-busy : root.home ? Linen.home-busy : Linen.refreshing) ? 0.4 : 1;
+                    clicked => {
+                        if root.foryou { Linen.rebuild-foryou(); } else if root.home { Linen.load-home(false); } else { Linen.refresh(); }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: start;
+                Tabs {
+                Tab { icon: Icon.subs; text: "Subscriptions"; active: root.subs; clicked => { Linen.feed-tab = 0; Linen.tab-shown(0); } }
+                Tab { icon: Icon.foryou; text: "For you"; active: root.foryou; clicked => { Linen.feed-tab = 1; Linen.tab-shown(1); } }
+                if Account.connected: Tab {
+                    icon: Icon.home;
+                    text: "YouTube Home";
+                    active: root.home;
+                    clicked => {
+                        Linen.feed-tab = 2;
+                        if Linen.home.length == 0 { Linen.load-home(false); } else { Linen.tab-shown(2); }
+                    }
+                }
+                }
+            }
+            if root.home && Linen.home.length > 0: Grid { items: Linen.home; }
+            if root.home && Linen.home-more: MoreButton { busy: Linen.home-busy; clicked => { Linen.load-home(true); } }
+            if root.home && Linen.home.length == 0: Empty {
+                icon: Icon.home;
+                text: Linen.home-busy ? "Loading your YouTube Home…" : Linen.home-msg != "" ? Linen.home-msg : "Nothing here yet.";
+            }
+            if root.subs && Linen.feed.length > 0: Grid { items: Linen.feed; }
+            if root.foryou && Linen.foryou.length > 0: Grid { items: Linen.foryou; actions: true; reasons: true; }
+            if root.subs && Linen.feed.length == 0: Empty {
+                icon: Icon.subs;
+                text: Linen.refreshing ? "Checking your channels…" : "Nothing here yet. Follow some channels in Subscriptions, or search for something.";
+                HorizontalLayout {
+                    alignment: center;
+                    if !Linen.refreshing: Pill { text: "Go to Subscriptions"; filled: true; clicked => { Linen.nav(1); } }
+                }
+            }
+            if root.foryou && Linen.foryou.length == 0: Empty {
+                icon: Icon.foryou;
+                text: Linen.foryou-busy ? "Picking videos for you…" : "Watch a few videos (or follow some channels) and Linen will pick more like them here.";
+            }
+        }
+    }
+}
+
+component SearchPage inherits Rectangle {
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 16px;
+            BackButton { }
+            PageHeader { title: Linen.query; sub: Linen.searching && Linen.results.length == 0 ? "Searching…" : Linen.results-msg; }
+            for c in Linen.found-channels: ChannelRow { item: c; }
+            if Linen.results.length > 0: Grid { items: Linen.results; }
+            if Linen.results-more: MoreButton { busy: Linen.searching; clicked => { Linen.more-results(); } }
+            if !Linen.searching && Linen.results.length == 0 && Linen.found-channels.length == 0: Empty {
+                icon: Icon.search;
+                text: Linen.results-msg != "" ? Linen.results-msg : "Nothing found.";
+            }
+        }
+    }
+}
+
+component ChannelPage inherits Rectangle {
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 16px;
+            BackButton { }
+            if Linen.ch-has-banner: Rectangle {
+                height: Math.min(parent.width / 6.2, 200px);
+                border-radius: 16px;
+                clip: true;
+                background: Theme.surface;
+                Image { width: parent.width; height: parent.height; source: Linen.ch-banner; image-fit: cover; }
+            }
+            HorizontalLayout {
+                spacing: 18px;
+                Rectangle {
+                    width: 84px;
+                    height: 84px;
+                    border-radius: 42px;
+                    background: Theme.raised;
+                    clip: true;
+                    if Linen.ch-has-avatar: Image { width: parent.width; height: parent.height; source: Linen.ch-avatar; image-fit: cover; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 4px;
+                    horizontal-stretch: 1;
+                    Label { text: Linen.ch-name; font-size: 28px; font-weight: 800; }
+                    Label { text: Linen.ch-meta; font-size: 13px; color: Theme.dim; }
+                    if Linen.ch-about != "": Text {
+                        text: Linen.ch-about;
+                        font-family: Theme.font;
+                        font-size: 13px;
+                        color: Theme.faint;
+                        wrap: word-wrap;
+                        overflow: elide;
+                        height: Math.min(self.preferred-height, 36px);
+                    }
+                }
+                if Linen.ch-name != "": Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Linen.ch-following ? Icon.check : Icon.add;
+                    text: Linen.ch-following ? "Following" : "Follow";
+                    filled: !Linen.ch-following;
+                    clicked => { Linen.follow(Linen.ch-id, !Linen.ch-following); }
+                }
+            }
+            HorizontalLayout {
+                alignment: start;
+                Tabs {
+                    Tab { text: "Videos"; active: Linen.ch-tab == 0; clicked => { Linen.ch-set-tab(0); } }
+                    Tab { text: "Playlists"; active: Linen.ch-tab == 1; clicked => { Linen.ch-set-tab(1); } }
+                }
+            }
+            if Linen.ch-items.length > 0: Grid { items: Linen.ch-items; }
+            if Linen.ch-more: MoreButton { busy: Linen.ch-loading; clicked => { Linen.ch-load-more(); } }
+            if Linen.ch-items.length == 0: Empty {
+                text: Linen.ch-loading ? "Loading…" : Linen.ch-msg != "" ? Linen.ch-msg : (Linen.ch-tab == 0 ? "No videos." : "No playlists.");
+            }
+        }
+    }
+}
+
+component PlaylistPage inherits Rectangle {
+    property <bool> renaming;
+    property <bool> sure;   // asked to delete once: the next click deletes
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 16px;
+            BackButton { }
+            PageHeader {
+                title: Linen.pl-title != "" ? Linen.pl-title : "Playlist";
+                sub: Linen.pl-by;
+                if Linen.pl-editable && !root.renaming: Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Icon.edit;
+                    text: "Rename";
+                    clicked => { root.renaming = true; root.sure = false; }
+                }
+                if Linen.pl-editable && !root.renaming: Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Icon.delete;
+                    text: root.sure ? "Delete it?" : "Delete";
+                    filled: root.sure;
+                    clicked => {
+                        if root.sure { root.sure = false; Linen.delete-playlist(); } else { root.sure = true; }
+                    }
+                }
+            }
+            if Linen.pl-editable && root.renaming: HorizontalLayout {
+                spacing: 8px;
+                NameBox {
+                    width: 420px;
+                    placeholder: "Playlist name";
+                    button: "Rename";
+                    start: Linen.pl-title;
+                    done(name) => { Linen.rename-playlist(name); root.renaming = false; }
+                }
+                Pill { text: "Cancel"; clicked => { root.renaming = false; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            if Linen.pl-items.length > 0: Grid { items: Linen.pl-items; removable: Linen.pl-editable; }
+            if Linen.pl-more: MoreButton { busy: Linen.pl-loading; clicked => { Linen.pl-load-more(); } }
+            if Linen.pl-items.length == 0: Empty {
+                icon: Linen.pl-editable ? Icon.playlist-add : "";
+                text: Linen.pl-loading ? "Loading…" : Linen.pl-msg != "" ? Linen.pl-msg
+                    : Linen.pl-editable ? "Nothing in it yet. Press Save under a video (or the + on a video's picture) to add it." : "This playlist is empty.";
+            }
+        }
+    }
+}
+
+component LibraryPage inherits Rectangle {
+    property <bool> later: Linen.lib-tab == 0;
+    property <bool> dl: Linen.lib-tab == 1;
+    property <bool> pls: Linen.lib-tab == 2;
+    property <bool> making;
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 16px;
+            PageHeader {
+                title: "Library";
+                sub: root.dl
+                    ? "Saved in " + Linen.downloads-folder + ". These play without a connection." + (Linen.downloads-sub != "" ? "  " + Linen.downloads-sub : "")
+                    : root.pls ? (Account.connected ? "Yours, in sync with your YouTube account, and ones you saved there" : "Your own lists of videos, in any order you like")
+                    : Account.connected ? "In sync with Watch later on your YouTube account" : "Videos you saved to watch another time";
+                if root.dl: Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Icon.folder;
+                    text: "Open folder";
+                    clicked => { Linen.open-downloads-folder(); }
+                }
+                if root.pls && !root.making: Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Icon.add;
+                    text: "New playlist";
+                    filled: true;
+                    clicked => { root.making = true; }
+                }
+            }
+            HorizontalLayout {
+                alignment: start;
+                Tabs {
+                Tab {
+                    icon: Icon.watch-later;
+                    text: Linen.later-count > 0 ? "Watch later  " + Linen.later-count : "Watch later";
+                    active: root.later;
+                    clicked => { Linen.lib-tab = 0; }
+                }
+                Tab {
+                    icon: Icon.playlist;
+                    text: Linen.playlists-count > 0 ? "Playlists  " + Linen.playlists-count : "Playlists";
+                    active: root.pls;
+                    clicked => { Linen.lib-tab = 2; }
+                }
+                Tab {
+                    icon: Icon.download;
+                    text: Linen.downloads-count > 0 ? "Downloads  " + Linen.downloads-count : "Downloads";
+                    active: root.dl;
+                    clicked => { Linen.lib-tab = 1; }
+                }
+                }
+            }
+            if root.pls && root.making: HorizontalLayout {
+                spacing: 8px;
+                NameBox { width: 420px; done(name) => { Linen.new-playlist(name); root.making = false; } }
+                Pill { text: "Cancel"; clicked => { root.making = false; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            if root.pls && Linen.playlists-msg != "": Label { text: Linen.playlists-msg; font-size: 13px; color: Theme.dim; wrap: word-wrap; }
+            if root.dl && Linen.downloads-msg != "": Label { text: Linen.downloads-msg; font-size: 13px; color: Theme.dim; wrap: word-wrap; }
+            if root.later && Linen.later.length > 0: Grid { items: Linen.later; }
+            if root.pls && Linen.my-playlists.length > 0: Grid { items: Linen.my-playlists; }
+            if root.dl && Linen.downloads.length > 0: Grid { items: Linen.downloads; deletable: true; }
+            if root.later && Linen.later.length == 0: Empty {
+                icon: Icon.watch-later;
+                text: "Nothing saved yet. Hover a video and press the clock, or use Watch later under a video.";
+            }
+            if root.pls && Linen.my-playlists.length == 0 && !root.making: Empty {
+                icon: Icon.playlist;
+                text: "No playlists yet. Make one here, or press Save under a video.";
+            }
+            if root.dl && Linen.downloads.length == 0: Empty {
+                icon: Icon.download;
+                text: "No downloads yet. Press Download under a video to keep it on this computer and watch it anywhere, even offline.";
+            }
+        }
+    }
+}
+
+component SubsPage inherits Rectangle {
+    VerticalLayout {
+        padding: 24px;
+        padding-top: 16px;
+        spacing: 14px;
+        PageHeader {
+            title: "Subscriptions";
+            sub: Linen.channels.length == 1 ? "1 channel" : Linen.channels.length + " channels";
+            Pill { icon: Icon.upload; text: "Import from Google Takeout"; y: (parent.height - self.height) / 2; clicked => { Linen.import-takeout(); } }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 42px;
+                border-radius: 21px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: add-input.has-focus ? Theme.accent : Theme.line;
+                add-input := TextInput {
+                    x: 18px;
+                    width: parent.width - 36px;
+                    font-family: Theme.font;
+                    font-size: 15px;
+                    color: Theme.text;
+                    single-line: true;
+                    vertical-alignment: center;
+                    accepted => { Linen.add-channel(self.text); self.text = ""; }
+                }
+                if add-input.text == "": Label { x: 18px; text: "Channel link or @handle (a video link works too)"; color: Theme.faint; font-size: 15px; }
+            }
+            Pill {
+                icon: Icon.add;
+                text: Linen.adding ? "Adding…" : "Follow";
+                filled: true;
+                enabled: !Linen.adding;
+                clicked => { Linen.add-channel(add-input.text); add-input.text = ""; }
+            }
+        }
+        if Linen.subs-msg != "": Label { text: Linen.subs-msg; color: Theme.dim; font-size: 13px; }
+        if Account.connected && Account.only-here > 0: Rectangle {
+            height: 56px;
+            border-radius: 14px;
+            background: Theme.surface;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 10px;
+                spacing: 12px;
+                Glyph { text: Icon.sync; font-size: 20px; color: Theme.accent; width: 24px; }
+                Label {
+                    horizontal-stretch: 1;
+                    text: Account.only-here == 1 ? "1 channel you follow here isn't on your YouTube account yet." : Account.only-here + " channels you follow here aren't on your YouTube account yet.";
+                    font-size: 14px;
+                    color: Theme.dim;
+                }
+                Pill {
+                    y: (parent.height - self.height) / 2;
+                    text: Account.pushing ? "Adding…" : "Add them to YouTube";
+                    enabled: !Account.pushing;
+                    clicked => { Account.push-only-here(); }
+                }
+            }
+        }
+        Flickable {
+            vertical-stretch: 1;
+            content-height: list.preferred-height;
+            list := VerticalLayout {
+                width: parent.width;
+                spacing: 4px;
+                alignment: start;
+                for c in Linen.channels: Rectangle {
+                    height: 56px;
+                    border-radius: 12px;
+                    background: row-touch.has-hover ? Theme.surface : transparent;
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { Linen.open-channel(c.id); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 14px;
+                        Rectangle {
+                            width: 40px;
+                            height: 40px;
+                            y: 8px;
+                            border-radius: 20px;
+                            background: Theme.raised;
+                            clip: true;
+                            if c.has-avatar: Image { width: parent.width; height: parent.height; source: c.avatar; image-fit: cover; }
+                            if !c.has-avatar: Label { text: c.name.character-count > 0 ? "•" : ""; color: Theme.faint; horizontal-alignment: center; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Label { text: c.name; font-size: 15px; font-weight: 650; }
+                            if c.sub != "": Label { text: c.sub; font-size: 12px; color: Theme.faint; }
+                        }
+                        IconButton { icon: Icon.close; size: 34px; y: (parent.height - self.height) / 2; clicked => { Linen.remove-channel(c.id); } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Player inherits Rectangle {
+    out property <length> video-w: self.width;
+    out property <length> video-h: self.height;
+    in property <length> radius: 28px;
+    in property <color> mask-color: Theme.bg;
+    // controls show while the mouse moves (and while paused), then fade after a moment
+    property <bool> awake: true;
+    property <bool> show-controls: root.awake || Watch.paused;
+    property <length> mx: hover.mouse-x;
+    property <length> my: hover.mouse-y;
+    // fullscreen: the pointer disappears after 2 s without moving (even when paused),
+    // and comes back on the next move. Set through the window, so it hides at once
+    // (a cursor style change alone only shows up when the mouse moves).
+    property <bool> hide-cursor: Watch.fullscreen && !root.awake;
+    changed hide-cursor => { Watch.cursor-hidden(self.hide-cursor); }
+    changed mx => { root.wake(); }
+    changed my => { root.wake(); }
+    function wake() {
+        root.awake = true;
+        idle.running = false;
+        idle.running = true;
+    }
+    idle := Timer {
+        interval: 2000ms;
+        running: true;
+        triggered => {
+            root.awake = false;
+            self.running = false;
+        }
+    }
+    background: black;
+    if !Watch.has-video && Watch.has-poster: Image {
+        width: parent.width;
+        height: parent.height;
+        source: Watch.poster;
+        image-fit: cover;
+        opacity: 0.55;
+    }
+    if Watch.has-video && !Watch.audio-only: Image {
+        width: parent.width;
+        height: parent.height;
+        source: Watch.frame;
+        image-fit: fill;
+    }
+    // listening only: the thumbnail, softly, and a note why there's no picture
+    if Watch.has-video && Watch.audio-only: Rectangle {
+        if Watch.has-poster: Image {
+            width: parent.width;
+            height: parent.height;
+            source: Watch.poster;
+            image-fit: cover;
+            opacity: 0.35;
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            Glyph { text: Icon.headphones; font-size: 56px; color: white; }
+            Label { text: "Audio only"; font-size: 18px; font-weight: 750; color: white; horizontal-alignment: center; }
+            Label { text: "Only the sound is downloaded. Turn the picture back on with the headphones button."; font-size: 13px; color: #ffffffbb; horizontal-alignment: center; }
+        }
+    }
+    // YouTube's ad wait: say plainly what it is and that it can't be skipped
+    if Watch.ad-left > 0 && !Watch.has-video: Rectangle {
+        width: Math.min(460px, parent.width - 40px);
+        height: ad-col.preferred-height;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: 18px;
+        background: #000000c8;
+        ad-col := VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+            HorizontalLayout {
+                alignment: center;
+                spacing: 10px;
+                Glyph { text: Icon.schedule; font-size: 22px; color: Theme.accent; }
+                Label { text: "YouTube's ad wait"; font-size: 17px; font-weight: 750; color: white; }
+                Label { text: Watch.ad-left + " s"; font-size: 17px; font-weight: 750; color: Theme.accent; }
+            }
+            Rectangle {
+                height: 6px;
+                border-radius: 3px;
+                background: #ffffff30;
+                Rectangle {
+                    x: 0;
+                    width: parent.width * (Watch.ad-total > 0 ? Math.clamp(1 - Watch.ad-left / Watch.ad-total, 0, 1) : 0);
+                    border-radius: 3px;
+                    background: Theme.accent;
+                    animate width { duration: 900ms; }
+                }
+            }
+            Text {
+                text: "YouTube makes you wait as long as the ad it would have shown. Linen doesn't show you the ad, but YouTube won't send the video any sooner, so this wait can't be removed.";
+                font-family: Theme.font;
+                font-size: 13px;
+                color: #ffffffcc;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "Videos in your feed usually skip it: Linen gets them ready in the background while you browse.";
+                font-family: Theme.font;
+                font-size: 12px;
+                color: #ffffff88;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+            }
+        }
+    }
+    if (!Watch.has-video || Watch.buffering) && !(Watch.ad-left > 0 && !Watch.has-video): Label {
+        horizontal-alignment: center;
+        text: Watch.buffering ? "Buffering…" : Watch.status != "" ? Watch.status : "Loading…";
+        color: #ffffffaa;
+        font-size: 16px;
+    }
+    // The controls live INSIDE the hover area: moving onto a button doesn't count
+    // as leaving the video (that made them flicker and swallow clicks).
+    hover := TouchArea {
+        mouse-cursor: root.hide-cursor ? MouseCursor.none : MouseCursor.default;
+        clicked => { Watch.toggle(); }
+        double-clicked => { Watch.fullscreen = !Watch.fullscreen; }
+        Rectangle {
+            x: 12px;
+            y: parent.height - self.height - 12px;
+            width: parent.width - 24px;
+            height: 92px;
+            border-radius: 24px;
+            background: #161616d0;
+            border-width: 1px;
+            border-color: #ffffff14;
+            opacity: root.show-controls ? 1 : 0;
+            animate opacity { duration: 180ms; }
+            // invisible controls mustn't take clicks
+            visible: self.opacity > 0.01;
+            VerticalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                padding-bottom: 10px;
+                padding-top: 6px;
+                alignment: end;
+                spacing: 4px;
+                bar := Rectangle {
+                    height: 16px;
+                    Rectangle {
+                        height: bar-touch.has-hover ? 8px : 6px;
+                        border-radius: self.height / 2;
+                        background: #ffffff2c;
+                        animate height { duration: 120ms; }
+                        Rectangle { x: 0; width: parent.width * Watch.progress; border-radius: parent.height / 2; background: Theme.accent; }
+                        // skippable parts, on top so they show on the played part too
+                        for g in Watch.segments: Rectangle {
+                            x: parent.width * g.from;
+                            width: Math.max(2px, parent.width * (g.to - g.from));
+                            background: g.color;
+                        }
+                        // chapters: small gaps where each one starts
+                        for m in Watch.marks: Rectangle {
+                            x: parent.width * m - 2px;
+                            width: 4px;
+                            background: #161616;
+                        }
+                    }
+                    bar-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { Watch.seek(Math.clamp(self.mouse-x / bar.width, 0, 1)); }
+                    }
+                    // where a click would go: the time, and the chapter there
+                    if bar-touch.has-hover: tip := Rectangle {
+                        property <float> at: Math.clamp(bar-touch.mouse-x / bar.width, 0, 1);
+                        property <string> name: Watch.marks.length > 0 ? Watch.chapter-at(self.at) : "";
+                        width: tip-col.preferred-width + 20px;
+                        height: tip-col.preferred-height + 10px;
+                        x: Math.clamp(bar.width * self.at - self.width / 2, 0, bar.width - self.width);
+                        y: -self.height - 6px;
+                        border-radius: 12px;
+                        background: Theme.solid;
+                        tip-col := VerticalLayout {
+                            alignment: center;
+                            Label { text: Watch.time-at(tip.at); font-size: 13px; font-weight: 700; color: white; horizontal-alignment: center; }
+                            if tip.name != "": Label { text: tip.name; font-size: 12px; color: #ffffffcc; horizontal-alignment: center; max-width: 320px; }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    IconButton {
+                        icon: Watch.paused ? Icon.play : Icon.pause;
+                        size: 46px;
+                        y: -4px;
+                        filled: true;
+                        shape: Shape.cookie9;
+                        clicked => { Watch.toggle(); }
+                    }
+                    IconButton { icon: Icon.replay10; size: 34px; y: 2px; clicked => { Watch.seek-by(-10); } }
+                    IconButton { icon: Icon.forward10; size: 34px; y: 2px; clicked => { Watch.seek-by(10); } }
+                    Label { text: Watch.pos-text + " / " + Watch.dur-text; color: #ffffffdd; font-size: 13px; }
+                    if Watch.chapter != "": Label { text: "·  " + Watch.chapter; color: #ffffffbb; font-size: 13px; horizontal-stretch: 1; }
+                    if Watch.chapter == "": Rectangle { horizontal-stretch: 1; }
+                    IconButton {
+                        icon: Icon.headphones;
+                        size: 34px;
+                        y: 2px;
+                        filled: Watch.audio-only;
+                        clicked => { Watch.set-audio-only(!Watch.audio-only); }
+                    }
+                    Glyph { text: Icon.volume; font-size: 19px; color: #ffffffcc; }
+                    vol := Rectangle {
+                        width: 90px;
+                        Rectangle {
+                            height: 4px;
+                            border-radius: 2px;
+                            background: #ffffff40;
+                            Rectangle { x: 0; width: parent.width * Watch.volume; border-radius: 2px; background: #ffffffcc; }
+                        }
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { Watch.volume = Math.clamp(self.mouse-x / vol.width, 0, 1); Watch.set-volume(Watch.volume); }
+                            moved => { if self.pressed { Watch.volume = Math.clamp(self.mouse-x / vol.width, 0, 1); Watch.set-volume(Watch.volume); } }
+                        }
+                    }
+                    IconButton { icon: Watch.fullscreen ? Icon.exit-fullscreen : Icon.fullscreen; clicked => { Watch.fullscreen = !Watch.fullscreen; } }
+                }
+            }
+        }
+    }
+    if Watch.skip-msg != "": Rectangle {
+        x: 16px;
+        y: parent.height - 104px - self.height - 8px;
+        width: skip-row.preferred-width + 24px;
+        height: 36px;
+        border-radius: 18px;
+        background: #000000cc;
+        skip-row := HorizontalLayout {
+            x: 12px;
+            spacing: 8px;
+            Glyph { text: Icon.skip; font-size: 18px; color: white; }
+            Label { text: Watch.skip-msg; font-size: 13px; color: white; }
+            undo := Label {
+                text: "Undo";
+                font-size: 13px;
+                font-weight: 700;
+                color: undo-t.has-hover ? white : Theme.accent;
+                undo-t := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Watch.undo-skip(); }
+                }
+            }
+        }
+    }
+    // Rounded corners without a rounded clip (that renders the video to an extra
+    // layer every frame): a thick border in the page colour hides the corners.
+    if root.radius > 0: Rectangle {
+        x: -12px;
+        y: -12px;
+        width: root.width + 24px;
+        height: root.height + 24px;
+        border-radius: root.radius + 12px;
+        border-width: 12px;
+        border-color: root.mask-color;
+    }
+}
+
+// One comment (or reply) under a video.
+component CommentRow inherits HorizontalLayout {
+    in property <CommentItem> item;
+    padding-left: root.item.reply ? 50px : 0px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    spacing: 12px;
+    if root.item.kind == 0: VerticalLayout {
+        alignment: start;
+        Rectangle {
+            width: root.item.reply ? 28px : 38px;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: Theme.raised;
+            clip: true;
+            if root.item.has-avatar: Image { width: parent.width; height: parent.height; source: root.item.avatar; image-fit: cover; }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Linen.open-channel(root.item.channel-id); }
+            }
+        }
+    }
+    if root.item.kind == 0: VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 4px;
+        HorizontalLayout {
+            alignment: start;
+            spacing: 8px;
+            if root.item.pinned: Glyph { text: Icon.pin; font-size: 15px; color: Theme.dim; }
+            Rectangle {
+                width: who.preferred-width + (root.item.creator ? 16px : 0px);
+                height: 22px;
+                border-radius: 11px;
+                background: root.item.creator ? Theme.raised : transparent;
+                who := Label {
+                    x: root.item.creator ? 8px : 0px;
+                    text: root.item.author;
+                    font-size: 13px;
+                    font-weight: 750;
+                    color: who-t.has-hover ? Theme.accent : Theme.text;
+                }
+                who-t := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Linen.open-channel(root.item.channel-id); }
+                }
+            }
+            Label { text: root.item.when; font-size: 12px; color: Theme.faint; }
+        }
+        Text {
+            text: root.item.text;
+            font-family: Theme.font;
+            font-size: 14px;
+            color: Theme.text;
+            wrap: word-wrap;
+        }
+        if root.item.likes != "" || root.item.hearted || root.item.replies != "": HorizontalLayout {
+            alignment: start;
+            spacing: 16px;
+            height: 24px;
+            if root.item.likes != "": HorizontalLayout {
+                spacing: 5px;
+                Glyph { text: Icon.like; font-size: 15px; color: Theme.dim; }
+                Label { text: root.item.likes; font-size: 12px; color: Theme.dim; }
+            }
+            if root.item.hearted: Glyph { text: Icon.heart; font-size: 15px; color: Theme.accent; }
+            if root.item.replies != "": Label {
+                text: root.item.loading ? "Loading…" : root.item.open ? "Hide replies" : root.item.replies;
+                font-size: 13px;
+                font-weight: 750;
+                color: rep-t.has-hover ? Theme.text : Theme.accent;
+                rep-t := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Watch.toggle-replies(root.item.id); }
+                }
+            }
+        }
+    }
+    if root.item.kind == 1: HorizontalLayout {
+        alignment: start;
+        height: 28px;
+        Label {
+            text: root.item.loading ? "Loading…" : "Show more replies";
+            font-size: 13px;
+            font-weight: 750;
+            color: more-t.has-hover ? Theme.text : Theme.accent;
+            more-t := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Watch.more-replies(root.item.id); }
+            }
+        }
+    }
+}
+
+component WatchPage inherits Rectangle {
+    out property <length> video-w: player.video-w;
+    out property <length> video-h: player.video-h;
+    property <bool> fs: Watch.fullscreen;
+    // a small window: the Watch later / Download buttons show just their icons
+    // (told by Linen from the window's size: reading this page's width here loops)
+    property <bool> narrow: Watch.narrow;
+    background: root.fs ? black : Theme.bg;
+    // its size comes from the window, never from what's inside (the player's
+    // height depends on this page's height)
+    min-height: 0px;
+    max-height: 100000px;
+    preferred-height: 0px;
+    Flickable {
+        min-height: 0px;
+        max-height: 100000px;
+        preferred-height: 0px;
+        content-height: root.fs ? root.height : col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: root.fs ? 0 : 20px;
+            padding-top: root.fs ? 0 : 12px;
+            spacing: root.fs ? 0 : 14px;
+            player := Player {
+                // 16:9, capped so the details stay in view on small screens
+                height: root.fs ? root.height : Math.min(self.width * 9 / 16, root.height - 140px);
+                radius: root.fs ? 0 : 28px;
+            }
+            if !root.fs: Text {
+                text: Watch.title;
+                font-family: Theme.font;
+                font-size: 22px;
+                font-weight: 800;
+                color: Theme.text;
+                wrap: word-wrap;
+            }
+            if !root.fs && Watch.meta != "": Label { text: Watch.meta; font-size: 13px; color: Theme.dim; }
+            if !root.fs && Watch.original-title != "": Text {
+                text: "Original title: " + Watch.original-title;
+                font-family: Theme.font;
+                font-size: 12px;
+                color: Theme.faint;
+                wrap: word-wrap;
+            }
+            if !root.fs: HorizontalLayout {
+                spacing: 12px;
+                // the channel: opens its page
+                ch-row := Rectangle {
+                    width: ch-lay.preferred-width + 12px;
+                    height: 48px;
+                    border-radius: 24px;
+                    background: ch-touch.has-hover ? Theme.surface : transparent;
+                    ch-touch := TouchArea {
+                        enabled: Watch.channel-id != "";
+                        mouse-cursor: pointer;
+                        clicked => { Linen.open-channel(Watch.channel-id); }
+                    }
+                    ch-lay := HorizontalLayout {
+                        x: 4px;
+                        spacing: 10px;
+                        Rectangle {
+                            width: 40px;
+                            height: 40px;
+                            y: 4px;
+                            border-radius: 20px;
+                            background: Theme.raised;
+                            clip: true;
+                            if Watch.has-channel-avatar: Image { width: parent.width; height: parent.height; source: Watch.channel-avatar; image-fit: cover; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Label { text: Watch.channel; font-size: 15px; font-weight: 700; }
+                            if Watch.subs != "": Label { text: Watch.subs; font-size: 12px; color: Theme.dim; }
+                        }
+                    }
+                }
+                if Watch.channel-id != "": Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Watch.following ? Icon.check : Icon.add;
+                    text: Watch.following ? "Following" : "Follow";
+                    filled: !Watch.following;
+                    clicked => { Linen.follow(Watch.channel-id, !Watch.following); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Watch.in-playlist ? Icon.playlist-added : Icon.playlist-add;
+                    text: root.narrow ? "" : "Save";
+                    clicked => { Watch.save(); }
+                }
+                Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Watch.later ? Icon.check : Icon.watch-later;
+                    text: root.narrow ? "" : Watch.later ? "Saved" : "Watch later";
+                    clicked => { Watch.toggle-later(); }
+                }
+                Pill {
+                    y: (parent.height - self.height) / 2;
+                    icon: Watch.dl-state == 2 ? Icon.download-done : Watch.dl-state == 1 ? Icon.close : Icon.download;
+                    text: root.narrow && Watch.dl-state != 1 ? "" : Watch.dl-text;
+                    clicked => { Watch.download(); }
+                }
+                // like / dislike: kept on this computer (no account), and For you learns from them
+                Rectangle {
+                    y: (parent.height - self.height) / 2;
+                    width: rate-row.preferred-width;
+                    height: 38px;
+                    border-radius: 19px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.line;
+                    rate-row := HorizontalLayout {
+                        Rectangle {
+                            width: like-row.preferred-width + 28px;
+                            border-radius: 19px;
+                            background: Watch.rating == 1 ? Theme.accent : like-t.has-hover ? Theme.raised : transparent;
+                            like-row := HorizontalLayout {
+                                alignment: center;
+                                spacing: 6px;
+                                Glyph { text: Icon.like; font-size: 19px; color: Watch.rating == 1 ? Theme.on-accent : Theme.text; }
+                                if Watch.likes != "": Label { text: Watch.likes; font-size: 14px; font-weight: 650; color: Watch.rating == 1 ? Theme.on-accent : Theme.text; }
+                            }
+                            like-t := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { Watch.rate(Watch.rating == 1 ? 0 : 1); }
+                            }
+                        }
+                        Rectangle { width: 1px; background: Watch.rating == 0 ? Theme.line : transparent; }
+                        Rectangle {
+                            width: dis-row.preferred-width + 28px;
+                            border-radius: 19px;
+                            background: Watch.rating == -1 ? Theme.accent : dis-t.has-hover ? Theme.raised : transparent;
+                            dis-row := HorizontalLayout {
+                                alignment: center;
+                                spacing: 6px;
+                                Glyph { text: Icon.dislike; font-size: 19px; color: Watch.rating == -1 ? Theme.on-accent : Theme.text; }
+                                if Watch.dislikes != "": Label { text: Watch.dislikes; font-size: 14px; font-weight: 650; color: Watch.rating == -1 ? Theme.on-accent : Theme.text; }
+                            }
+                            dis-t := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { Watch.rate(Watch.rating == -1 ? 0 : -1); }
+                            }
+                        }
+                    }
+                }
+            }
+            if !root.fs && Watch.description != "": Rectangle {
+                border-radius: 24px;
+                border-width: 1px;
+                border-color: Theme.line;
+                background: Theme.surface;
+                height: desc.preferred-height + 28px;
+                desc := Text {
+                    x: 20px;
+                    y: 14px;
+                    width: parent.width - 40px;
+                    text: Watch.description;
+                    font-family: Theme.font;
+                    font-size: 14px;
+                    color: Theme.dim;
+                    wrap: word-wrap;
+                }
+            }
+            // chapters (or the timestamps in the description): jump there
+            if !root.fs && Watch.chapters.length > 0: VerticalLayout {
+                spacing: 2px;
+                Label { text: "Chapters"; font-size: 16px; font-weight: 750; height: 32px; }
+                for c in Watch.chapters: c-row := Rectangle {
+                    property <bool> now: c.label == Watch.chapter;
+                    height: 40px;
+                    border-radius: 20px;
+                    background: self.now ? #f0b8921f : c-touch.has-hover ? Theme.surface : transparent;
+                    c-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { Watch.seek-to(c.at); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        spacing: 12px;
+                        // the one playing gets the apricot flower
+                        Blob {
+                            width: 22px;
+                            height: 22px;
+                            y: 9px;
+                            shape: c-row.now ? Shape.flower : Shape.sunny;
+                            fill: c-row.now ? Theme.accent : Theme.raised;
+                        }
+                        Label { text: c.time; width: 64px; font-size: 13px; font-weight: 700; color: Theme.accent; }
+                        Label { text: c.label; font-size: 14px; font-weight: c-row.now ? 750 : 500; color: Theme.text; horizontal-stretch: 1; }
+                    }
+                }
+            }
+            if !root.fs && Watch.links.length > 0: VerticalLayout {
+                spacing: 2px;
+                Label { text: "Links"; font-size: 16px; font-weight: 750; height: 32px; }
+                for l[i] in Watch.links: Rectangle {
+                    height: 34px;
+                    border-radius: 10px;
+                    background: l-touch.has-hover ? Theme.surface : transparent;
+                    l-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { Watch.open-link(i); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        spacing: 10px;
+                        Glyph { text: l.kind == 1 ? Icon.play : Icon.link; font-size: 18px; color: Theme.faint; width: 22px; }
+                        Label { text: l.label; font-size: 14px; color: l-touch.has-hover ? Theme.text : Theme.dim; horizontal-stretch: 1; }
+                    }
+                }
+            }
+            // comments: one quiet line until you ask for them
+            if !root.fs && Watch.has-comments: HorizontalLayout {
+                spacing: 12px;
+                padding-top: 8px;
+                height: 54px;
+                Blob { width: 30px; height: 30px; y: 12px; shape: Shape.clover; fill: Theme.raised; Glyph { text: Icon.comment; font-size: 16px; color: Theme.accent; } }
+                Label { text: "Comments"; font-size: 16px; font-weight: 750; }
+                Label { text: Watch.comment-count; font-size: 14px; color: Theme.dim; }
+                Rectangle { horizontal-stretch: 1; }
+                if Watch.comments-shown: Tabs {
+                    y: (parent.height - self.height) / 2;
+                    Tab { text: "Top"; active: Watch.comments-sort == 0; clicked => { Watch.sort-comments(false); } }
+                    Tab { text: "Newest"; active: Watch.comments-sort == 1; clicked => { Watch.sort-comments(true); } }
+                }
+                Pill {
+                    y: (parent.height - self.height) / 2;
+                    text: Watch.comments-shown ? "Hide" : "Show";
+                    filled: !Watch.comments-shown;
+                    clicked => {
+                        if Watch.comments-shown { Watch.comments-shown = false; } else { Watch.show-comments(); }
+                    }
+                }
+            }
+            if !root.fs && Watch.has-comments && Watch.comments-shown: VerticalLayout {
+                spacing: 0px;
+                for c in Watch.comments: CommentRow { item: c; }
+                if Watch.comments-busy: Label { text: "Loading comments…"; color: Theme.dim; height: 40px; }
+                if Watch.comments-msg != "": Label { text: Watch.comments-msg; color: Theme.dim; height: 40px; }
+                if Watch.comments-more && !Watch.comments-busy: MoreButton { clicked => { Watch.more-comments(); } }
+            }
+            if !root.fs: Rectangle { height: 12px; }
+        }
+    }
+}
+
+component Switch inherits Rectangle {
+    in property <bool> on;
+    callback toggled(bool);
+    width: 46px;
+    height: 26px;
+    border-radius: 13px;
+    background: root.on ? Theme.accent : Theme.raised;
+    animate background { duration: 150ms; }
+    Rectangle {
+        x: root.on ? parent.width - self.width - 3px : 3px;
+        animate x { duration: 150ms; easing: ease-out; }
+        y: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: root.on ? Theme.on-accent : Theme.dim;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.toggled(!root.on); }
+    }
+}
+
+component SettingRow inherits Rectangle {
+    in property <string> name;
+    in property <string> desc;
+    in property <bool> on;
+    in property <bool> indent;
+    callback toggled(bool);
+    min-height: 58px;
+    border-radius: 12px;
+    background: t.has-hover ? Theme.surface : transparent;
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.toggled(!root.on); }
+    }
+    HorizontalLayout {
+        padding-left: root.indent ? 40px : 14px;
+        padding-right: 14px;
+        spacing: 16px;
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Label { text: root.name; font-size: 15px; font-weight: 650; }
+            if root.desc != "": Text {
+                text: root.desc;
+                font-family: Theme.font;
+                font-size: 13px;
+                color: Theme.dim;
+                wrap: word-wrap;
+            }
+        }
+        Switch { y: (parent.height - self.height) / 2; on: root.on; toggled(v) => { root.toggled(v); } }
+    }
+}
+
+component SectionTitle inherits VerticalLayout {
+    in property <string> text;
+    in property <string> sub;
+    padding-top: 14px;
+    spacing: 2px;
+    Label { text: root.text; font-size: 18px; font-weight: 800; }
+    if root.sub != "": Text { text: root.sub; font-family: Theme.font; font-size: 13px; color: Theme.faint; wrap: word-wrap; }
+}
+
+// The honest heads-up about connecting an account.
+component AccountWarning inherits Rectangle {
+    border-radius: 14px;
+    background: #3a2f1c;
+    border-width: 1px;
+    border-color: #6b5530;
+    height: warn-row.preferred-height;
+    warn-row := HorizontalLayout {
+        padding: 14px;
+        spacing: 12px;
+        Glyph { text: Icon.warning; font-size: 22px; color: #e8b864; width: 26px; y: 14px; height: 24px; }
+        VerticalLayout {
+            spacing: 4px;
+            Label { text: "A small risk, worth knowing"; font-size: 14px; font-weight: 750; color: #f0d6a8; }
+            Text {
+                text: "Linen connects with your browser's YouTube sign-in, the same way youtube.com talks to YouTube. This isn't an official Google feature, so there's a small chance Google could flag or ban the account. It's very unlikely and most likely won't happen, but to be safe we recommend connecting a secondary (alt) account rather than your main one.";
+                font-family: Theme.font;
+                font-size: 13px;
+                color: #e6d3b3;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// Connect / connected: on the welcome screen and in Settings.
+component AccountBox inherits VerticalLayout {
+    spacing: 12px;
+    if Account.choosing: VerticalLayout {
+        spacing: 6px;
+        Label { text: "Which account should Linen use?"; font-size: 16px; font-weight: 750; }
+        Label { text: "These are signed in to YouTube in Firefox."; font-size: 13px; color: Theme.dim; }
+        for c[i] in Account.choices: Rectangle {
+            height: 64px;
+            border-radius: 14px;
+            background: pick-t.has-hover ? Theme.raised : Theme.surface;
+            pick-t := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Account.choose(i); }
+            }
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 14px;
+                Rectangle {
+                    width: 42px;
+                    height: 42px;
+                    y: 11px;
+                    border-radius: 21px;
+                    clip: true;
+                    background: Theme.raised;
+                    if c.has-avatar: Image { width: parent.width; height: parent.height; source: c.avatar; image-fit: cover; }
+                    if !c.has-avatar: Glyph { text: Icon.account; font-size: 28px; color: Theme.dim; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Label { text: c.name; font-size: 15px; font-weight: 700; }
+                    Label { text: c.handle + (c.byline != "" ? " · " + c.byline : ""); font-size: 13px; color: Theme.dim; }
+                }
+                Pill { y: (parent.height - self.height) / 2; text: "Use this one"; filled: true; clicked => { Account.choose(i); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            padding-top: 4px;
+            alignment: start;
+            Label { text: "Not listed?"; font-size: 13px; color: Theme.dim; }
+            Pill { text: "Sign in to it in Firefox"; clicked => { Account.open-firefox(); } }
+            Pill { icon: Icon.refresh; text: "Look again"; clicked => { Account.connect(); } }
+        }
+    }
+    if Account.connected && !Account.choosing: Rectangle {
+        height: 72px;
+        border-radius: 14px;
+        background: Theme.surface;
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 14px;
+            Rectangle {
+                width: 44px;
+                height: 44px;
+                y: 14px;
+                border-radius: 22px;
+                clip: true;
+                background: Theme.raised;
+                if Account.has-avatar: Image { width: parent.width; height: parent.height; source: Account.avatar; image-fit: cover; }
+                if !Account.has-avatar: Glyph { text: Icon.account; font-size: 30px; color: Theme.dim; }
+            }
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                Label { text: "Connected as " + Account.name; font-size: 15px; font-weight: 700; }
+                Label { text: Account.msg != "" ? Account.msg : Account.handle; font-size: 13px; color: Theme.dim; }
+            }
+        }
+    }
+    if !Account.connected && !Account.choosing: VerticalLayout {
+        spacing: 12px;
+        AccountWarning { }
+        Text {
+            text: "Linen reads your sign-in from Firefox each time it starts, so sign in to youtube.com in Firefox first (with the account you want to use). It never keeps its own copy of your login.";
+            font-family: Theme.font;
+            font-size: 13px;
+            color: Theme.faint;
+            wrap: word-wrap;
+        }
+        if Account.msg != "": Text { text: Account.msg; font-family: Theme.font; font-size: 13px; color: Theme.accent; wrap: word-wrap; }
+    }
+}
+
+component SettingsPage inherits Rectangle {
+    Flickable {
+        content-height: col.preferred-height;
+        col := VerticalLayout {
+            width: parent.width;
+            padding: 24px;
+            padding-top: 4px;
+            spacing: 6px;
+            PageHeader { title: "Settings"; }
+            SectionTitle {
+                text: "YouTube account";
+                sub: "Keeps your subscriptions, watch history (with where you stopped) and likes in sync with YouTube on your other devices, and adds your YouTube Home feed.";
+            }
+            AccountBox { }
+            HorizontalLayout {
+                alignment: start;
+                padding-top: 4px;
+                if Account.connected && !Account.choosing: Pill { icon: Icon.account; text: Account.busy ? "Looking…" : "Switch account"; clicked => { Account.connect(); } }
+                if Account.connected: Pill { text: "Disconnect"; clicked => { Account.disconnect(); } }
+                if !Account.connected: Pill {
+                    icon: Icon.account;
+                    text: Account.busy ? "Connecting…" : "Connect from Firefox";
+                    filled: true;
+                    enabled: !Account.busy;
+                    clicked => { Account.connect(); }
+                }
+            }
+            SectionTitle {
+                text: "Video quality";
+                sub: Settings.quality == 1 ? "Up to 1080p, 60 fps included. Uses the most data, and a slower connection may pause to buffer."
+                    : Settings.quality == 2 ? "Up to 480p. Uses much less data: good on a phone hotspot or a slow connection."
+                    : "1080p when the video is 30 fps, otherwise up to 720p (60 fps videos stay smooth). Plays without buffering on most connections.";
+            }
+            HorizontalLayout {
+                alignment: start;
+                padding-top: 4px;
+                padding-bottom: 8px;
+                Tabs {
+                    Tab { text: "Auto"; active: Settings.quality == 0; clicked => { Settings.set-quality(0); } }
+                    Tab { text: "Best"; active: Settings.quality == 1; clicked => { Settings.set-quality(1); } }
+                    Tab { text: "Data saver"; active: Settings.quality == 2; clicked => { Settings.set-quality(2); } }
+                }
+            }
+            SectionTitle {
+                text: "Skip the filler (SponsorBlock)";
+                sub: "Parts of videos marked by other viewers get skipped for you, with an Undo. Marks show on the progress bar.";
+            }
+            SettingRow {
+                name: "Skip marked parts";
+                on: Settings.sponsorblock;
+                toggled(v) => { Settings.set("sb", v); }
+            }
+            if Settings.sponsorblock: VerticalLayout {
+                spacing: 2px;
+                for c in Settings.categories: SettingRow {
+                    indent: true;
+                    name: c.name;
+                    desc: c.desc;
+                    on: c.on;
+                    toggled(v) => { Settings.set("sb." + c.key, v); }
+                }
+            }
+            SectionTitle {
+                text: "Calmer titles and pictures (DeArrow)";
+                sub: "Titles and thumbnails rewritten by other viewers to say what the video is, not shout. The original title stays on the video's page.";
+            }
+            SettingRow { name: "Community titles"; on: Settings.dearrow-titles; toggled(v) => { Settings.set("dearrow.titles", v); } }
+            SettingRow { name: "Community thumbnails"; desc: "A frame from the video instead of the clickbait picture"; on: Settings.dearrow-thumbs; toggled(v) => { Settings.set("dearrow.thumbs", v); } }
+            SectionTitle { text: "Dislikes (Return YouTube Dislike)"; sub: "YouTube hides dislike counts; this shows an estimate from the community."; }
+            SettingRow { name: "Show dislikes"; on: Settings.dislikes; toggled(v) => { Settings.set("ryd", v); } }
+            Rectangle { height: 24px; }
+        }
+    }
+}
+
+component Feature inherits HorizontalLayout {
+    in property <string> icon;
+    in property <string> title;
+    in property <string> text;
+    spacing: 16px;
+    Rectangle {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: Theme.surface;
+        Glyph { text: root.icon; font-size: 24px; color: Theme.accent; }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        Label { text: root.title; font-size: 16px; font-weight: 700; }
+        Text { text: root.text; font-family: Theme.font; font-size: 14px; color: Theme.dim; wrap: word-wrap; }
+    }
+}
+
+component Dots inherits HorizontalLayout {
+    in property <int> step;
+    in property <int> count;
+    alignment: center;
+    spacing: 8px;
+    for i in root.count: Rectangle {
+        width: i == root.step ? 22px : 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: i == root.step ? Theme.accent : Theme.line;
+        animate width { duration: 200ms; }
+    }
+}
+
+component Onboarding inherits Rectangle {
+    background: Theme.bg;
+    // the follow step only appears when no account was connected
+    property <int> steps: Account.connected ? 2 : 3;
+    // the follow step keeps its count and Done button in view at the bottom
+    property <length> footer: Onboard.step == 2 ? 76px : 0px;
+    Flickable {
+        height: parent.height - root.footer;
+        y: 0;
+        content-height: Math.max(self.height, col.preferred-height);
+        col := VerticalLayout {
+            x: Math.max(24px, (parent.width - 640px) / 2);
+            width: Math.min(640px, parent.width - 48px);
+            padding-top: 48px;
+            padding-bottom: 40px;
+            spacing: 22px;
+            alignment: center;
+            Dots { step: Onboard.step; count: root.steps; }
+
+            // 1: what Linen is
+            if Onboard.step == 0: VerticalLayout {
+                spacing: 22px;
+                VerticalLayout {
+                    spacing: 6px;
+                    Label { text: "Welcome to Linen"; font-size: 36px; font-weight: 800; color: Theme.accent; horizontal-alignment: center; }
+                    Label { text: "YouTube, calmly."; font-size: 18px; color: Theme.dim; horizontal-alignment: center; }
+                }
+                Rectangle { height: 6px; }
+                Feature { icon: Icon.calm; title: "Just what you came for"; text: "Your subscriptions first. No Shorts, no autoplay, no endless rabbit holes."; }
+                Feature { icon: Icon.skip; title: "Less noise"; text: "Sponsor segments skipped and clickbait titles calmed, thanks to community projects (SponsorBlock, DeArrow)."; }
+                Feature { icon: Icon.foryou; title: "For you, on your terms"; text: "Recommendations picked on this computer from what you watch, with a reason for each one."; }
+                Feature { icon: Icon.bolt; title: "Light"; text: "Video plays on your graphics chip, so even older laptops stay cool and quiet."; }
+                Rectangle { height: 6px; }
+                HorizontalLayout {
+                    alignment: center;
+                    Pill { icon: Icon.arrow-forward; text: "Get started"; filled: true; clicked => { Onboard.step = 1; } }
+                }
+            }
+
+            // 2: bring your YouTube account (optional)
+            if Onboard.step == 1: VerticalLayout {
+                spacing: 18px;
+                VerticalLayout {
+                    spacing: 6px;
+                    Label { text: "Bring your YouTube account?"; font-size: 30px; font-weight: 800; horizontal-alignment: center; }
+                    Text {
+                        text: "Optional. Connected, your subscriptions, watch history (with where you stopped) and likes stay in sync with YouTube on your phone and other devices, and you get your YouTube Home feed too.";
+                        font-family: Theme.font;
+                        font-size: 15px;
+                        color: Theme.dim;
+                        wrap: word-wrap;
+                        horizontal-alignment: center;
+                    }
+                }
+                AccountBox { }
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 10px;
+                    if !Account.connected: Pill { text: "Skip, use Linen without an account"; clicked => { Onboard.step = 2; } }
+                    if !Account.connected && !Account.choosing: Pill {
+                        icon: Icon.account;
+                        text: Account.busy ? "Connecting…" : "Connect from Firefox";
+                        filled: true;
+                        enabled: !Account.busy;
+                        clicked => { Account.connect(); }
+                    }
+                    if Account.connected && !Account.choosing: Pill { icon: Icon.arrow-forward; text: "Continue"; filled: true; clicked => { Onboard.finish(); } }
+                }
+            }
+
+            // 3: follow a few channels (only without an account)
+            if Onboard.step == 2: VerticalLayout {
+                spacing: 16px;
+                VerticalLayout {
+                    spacing: 6px;
+                    Label { text: "Follow a few channels"; font-size: 30px; font-weight: 800; horizontal-alignment: center; }
+                    Label {
+                        text: "Pick at least 3 to fill your feed. You can change them any time.";
+                        font-size: 15px;
+                        color: Theme.dim;
+                        horizontal-alignment: center;
+                    }
+                }
+                Rectangle {
+                    height: 44px;
+                    border-radius: 22px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: find.has-focus ? Theme.accent : Theme.line;
+                    Glyph { x: 14px; width: 22px; text: Icon.search; font-size: 20px; color: Theme.faint; }
+                    find := TextInput {
+                        x: 46px;
+                        width: parent.width - 60px;
+                        font-family: Theme.font;
+                        font-size: 15px;
+                        color: Theme.text;
+                        single-line: true;
+                        vertical-alignment: center;
+                        accepted => { Onboard.find(self.text); }
+                    }
+                    if find.text == "": Label { x: 46px; text: "Search for a channel you like"; color: Theme.faint; font-size: 15px; }
+                }
+                Label { text: Onboard.suggestions-title; font-size: 14px; font-weight: 700; color: Theme.dim; }
+                VerticalLayout {
+                    spacing: 2px;
+                    for c in Onboard.suggestions: ChannelRow { item: c; opens: false; }
+                }
+            }
+        }
+    }
+    if Onboard.step == 2: Rectangle {
+        y: parent.height - root.footer;
+        height: root.footer;
+        background: Theme.surface;
+        Rectangle { y: 0; height: 1px; background: Theme.line; }
+        HorizontalLayout {
+            alignment: center;
+            spacing: 16px;
+            Label {
+                text: Onboard.followed >= 3 ? "Nice, " + Onboard.followed + " followed." : Onboard.followed + " of 3 followed";
+                font-size: 15px;
+                font-weight: 650;
+                color: Onboard.followed >= 3 ? Theme.accent : Theme.dim;
+            }
+            Pill {
+                y: (parent.height - self.height) / 2;
+                icon: Icon.arrow-forward;
+                text: "Done";
+                filled: true;
+                enabled: Onboard.followed >= 3;
+                clicked => { Onboard.finish(); }
+            }
+        }
+    }
+}
+
+// "Save to…": your playlists with a tick for the ones the video is in, and a new one.
+component SaveDialog inherits Rectangle {
+    background: #000000a0;
+    TouchArea { clicked => { Linen.save-open = false; } }
+    panel := Rectangle {
+        width: 400px;
+        height: box.preferred-height;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: 28px;
+        background: Theme.solid;
+        border-width: 1px;
+        border-color: Theme.line;
+        drop-shadow-blur: 40px;
+        drop-shadow-color: #00000090;
+        TouchArea { }   // clicks inside don't close it
+        box := VerticalLayout {
+            padding: 22px;
+            spacing: 6px;
+            HorizontalLayout {
+                spacing: 12px;
+                height: 44px;
+                Blob { width: 36px; height: 36px; y: 4px; shape: Shape.cookie9; Glyph { text: Icon.playlist-add; font-size: 19px; color: Theme.on-accent; } }
+                Label { text: "Save to…"; font-size: 19px; font-weight: 800; horizontal-stretch: 1; }
+                IconButton { icon: Icon.close; y: 3px; clicked => { Linen.save-open = false; } }
+            }
+            if Linen.save-lists.length == 0: Label { text: "No playlists yet: name your first one below."; color: Theme.dim; font-size: 13px; height: 36px; }
+            Flickable {
+                height: Math.min(Linen.save-lists.length * 52px, 320px);
+                VerticalLayout {
+                    for p in Linen.save-lists: Rectangle {
+                        height: 52px;
+                        border-radius: 16px;
+                        background: t.has-hover ? Theme.raised : transparent;
+                        t := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { Linen.toggle-save(p.id); }
+                        }
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 12px;
+                            Glyph { width: 26px; text: p.on ? Icon.box-on : Icon.box-off; color: p.on ? Theme.accent : Theme.dim; }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Label { text: p.name; font-size: 15px; font-weight: 700; }
+                                Label { text: p.sub; font-size: 12px; color: Theme.faint; }
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle { height: 6px; }
+            NameBox { done(name) => { Linen.new-playlist(name); } }
+            if Linen.playlists-msg != "": Label { text: Linen.playlists-msg; color: Theme.dim; font-size: 12px; wrap: word-wrap; }
+        }
+    }
+}
+
+// The video, small, in the corner while you browse: click it to go back to it.
+component MiniPlayer inherits Rectangle {
+    out property <length> video-w: 320px;
+    out property <length> video-h: 180px;
+    width: 336px;
+    height: col.preferred-height;
+    border-radius: 26px;
+    background: Theme.solid;
+    border-width: 1px;
+    border-color: Theme.line;
+    drop-shadow-blur: 24px;
+    drop-shadow-color: #00000080;
+    drop-shadow-offset-y: 6px;
+    col := VerticalLayout {
+        padding: 8px;
+        spacing: 8px;
+        Rectangle {
+            width: root.video-w;
+            height: root.video-h;
+            background: black;
+            if Watch.has-video && !Watch.audio-only: Image { width: parent.width; height: parent.height; source: Watch.frame; image-fit: fill; }
+            if (!Watch.has-video || Watch.audio-only) && Watch.has-poster: Image { width: parent.width; height: parent.height; source: Watch.poster; image-fit: cover; opacity: Watch.audio-only ? 0.8 : 0.55; }
+            if Watch.has-video && Watch.audio-only: Rectangle {
+                x: 8px;
+                y: 8px;
+                width: 30px;
+                height: 30px;
+                border-radius: 15px;
+                background: #000000aa;
+                Glyph { text: Icon.headphones; font-size: 17px; color: white; }
+            }
+            // played so far
+            Rectangle {
+                y: parent.height - 3px;
+                height: 3px;
+                background: #ffffff30;
+                Rectangle { x: 0; width: parent.width * Watch.progress; background: Theme.accent; }
+            }
+            big := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Watch.expand(); }
+            }
+            if big.has-hover: Rectangle {
+                background: #00000055;
+                Glyph { text: Icon.fullscreen; font-size: 30px; color: white; }
+            }
+            // rounded corners without a clip (same trick as the big player)
+            Rectangle {
+                x: -8px;
+                y: -8px;
+                width: parent.width + 16px;
+                height: parent.height + 16px;
+                border-radius: 26px;
+                border-width: 8px;
+                border-color: Theme.solid;
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            padding-left: 4px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                Label { text: Watch.title; font-size: 13px; font-weight: 650; }
+                Label { text: Watch.channel; font-size: 12px; color: Theme.dim; }
+            }
+            IconButton { size: 42px; y: (parent.height - self.height) / 2; icon: Watch.paused ? Icon.play : Icon.pause; filled: true; shape: Shape.cookie9; clicked => { Watch.toggle(); } }
+            IconButton { size: 34px; y: (parent.height - self.height) / 2; icon: Icon.close; clicked => { Watch.close-mini(); } }
+        }
+    }
+}
+
+export component App inherits Window {
+    title: "Linen";
+    icon: @image-url("icon.svg");
+    preferred-width: 1240px;
+    preferred-height: 800px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Theme.bg;
+    default-font-family: Theme.font;
+    // keyboard shortcuts work from the start
+    forward-focus: keys;
+
+    // what mpv draws at: the big player, or the mini one while browsing
+    out property <length> video-w: Linen.page == 2 ? watch.video-w : mini.video-w;
+    out property <length> video-h: Linen.page == 2 ? watch.video-h : mini.video-h;
+    property <bool> fs: Watch.fullscreen;
+    changed fs => { Watch.set-fullscreen(self.fs); }
+    // after typing in a box, a new page gets the keyboard shortcuts back
+    property <int> pg: Linen.page;
+    changed pg => { keys.focus(); }
+
+    // two soft warm glows in the background, for the frosted panels to sit on
+    Rectangle {
+        x: -220px;
+        y: -260px;
+        width: 760px;
+        height: 760px;
+        background: @radial-gradient(circle, #2e2925 0%, #12121200 70%);
+        // not while watching: the player's rounded corners need a plain background
+        opacity: Linen.page == 2 ? 0 : 1;
+        animate opacity { duration: 250ms; }
+    }
+    Rectangle {
+        x: root.width - 560px;
+        y: root.height - 520px;
+        width: 860px;
+        height: 860px;
+        background: @radial-gradient(circle, #26231f 0%, #12121200 70%);
+        opacity: Linen.page == 2 ? 0 : 1;
+        animate opacity { duration: 250ms; }
+    }
+    keys := FocusScope {
+        key-pressed(e) => {
+            if Linen.save-open && e.text == Key.Escape { Linen.save-open = false; return accept; }
+            if Linen.page != 2 {
+                if e.text == Key.Escape && Linen.can-back { Linen.back(); return accept; }
+                // the mini player answers the playback keys too
+                if Watch.mini {
+                    if e.text == " " || e.text == "k" { Watch.toggle(); return accept; }
+                    if e.text == "j" || e.text == "l" { Watch.seek-by(e.text == "j" ? -10 : 10); return accept; }
+                }
+                return reject;
+            }
+            if e.text == " " || e.text == "k" { Watch.toggle(); return accept; }
+            if e.text == Key.LeftArrow || e.text == "j" { Watch.seek-by(e.text == "j" ? -10 : -5); return accept; }
+            if e.text == Key.RightArrow || e.text == "l" { Watch.seek-by(e.text == "l" ? 10 : 5); return accept; }
+            if e.text == "f" { Watch.fullscreen = !Watch.fullscreen; return accept; }
+            if e.text == Key.Escape {
+                if Watch.fullscreen { Watch.fullscreen = false; } else { Watch.leave(); }
+                return accept;
+            }
+            reject
+        }
+        HorizontalLayout {
+            padding: Watch.fullscreen && Linen.page == 2 ? 0 : 14px;
+            spacing: 14px;
+            // the side rail: frosted, with the pages as icons
+            if !(Watch.fullscreen && Linen.page == 2): Rectangle {
+                width: 88px;
+                border-radius: 28px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.line;
+                VerticalLayout {
+                    padding-top: 18px;
+                    padding-bottom: 14px;
+                    spacing: 6px;
+                    alignment: start;
+                    HorizontalLayout {
+                        alignment: center;
+                        padding-bottom: 16px;
+                        // the logo: a play button drawn as one thread, loose end and all
+                        Rectangle {
+                            width: 46px;
+                            height: 46px;
+                            Path {
+                                width: 100%;
+                                height: 100%;
+                                viewbox-x: -100;
+                                viewbox-y: -94;
+                                viewbox-width: 200;
+                                viewbox-height: 200;
+                                commands: "M-26.06,-43.00 Q-26.06,-65.00 -7.01,-54.00 L57.07,-17.00 Q76.13,-6.00 57.07,5.00 L-7.01,42.00 Q-26.06,53.00 -26.06,31.00 Z";
+                                stroke: Theme.accent;
+                                stroke-width: 3.6px;
+                                stroke-line-join: round;
+                            }
+                            Path {
+                                width: 100%;
+                                height: 100%;
+                                viewbox-x: -100;
+                                viewbox-y: -94;
+                                viewbox-width: 200;
+                                viewbox-height: 200;
+                                commands: "M -31,53 C -40,78 -70,74 -66,52 C -63,36 -40,44 -52,70";
+                                stroke: Theme.accent;
+                                stroke-width: 2.3px;
+                                stroke-line-cap: round;
+                            }
+                        }
+                    }
+                    HorizontalLayout { alignment: center; NavItem { icon: Icon.feed; label: "Feed"; active: Linen.page == 0 || ((Linen.page == 2 || Linen.page == 4 || Linen.page == 5) && !Linen.can-back); clicked => { Linen.nav(0); } } }
+                    HorizontalLayout { alignment: center; NavItem { icon: Icon.subs; label: "Subs"; active: Linen.page == 1; clicked => { Linen.nav(1); } } }
+                    HorizontalLayout { alignment: center; NavItem { icon: Icon.library; label: "Library"; active: Linen.page == 8; clicked => { Linen.nav(8); } } }
+                }
+                NavItem {
+                    x: (parent.width - self.width) / 2;
+                    y: parent.height - self.height - 14px;
+                    icon: Icon.settings;
+                    label: "Settings";
+                    active: Linen.page == 6;
+                    clicked => { Linen.nav(6); }
+                }
+            }
+            VerticalLayout {
+                spacing: 6px;
+                // search, top right
+                if !(Watch.fullscreen && Linen.page == 2): HorizontalLayout {
+                    height: 46px;
+                    padding-right: 10px;
+                    padding-left: Linen.page == 2 ? 20px : 0px;
+                    // watching: Back sits up here, so the video gets the room
+                    if Linen.page == 2: Pill { y: 3px; icon: Icon.back; text: "Back"; clicked => { Watch.leave(); } }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        width: 340px;
+                        border-radius: 23px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: q.has-focus ? Theme.accent : Theme.line;
+                        Glyph { x: 14px; width: 22px; text: Icon.search; font-size: 20px; color: Theme.dim; }
+                        q := TextInput {
+                            x: 44px;
+                            width: parent.width - 58px;
+                            font-family: Theme.font;
+                            font-size: 14px;
+                            color: Theme.text;
+                            single-line: true;
+                            vertical-alignment: center;
+                            accepted => {
+                                if self.text != "" { Linen.search(self.text); }
+                            }
+                        }
+                        if q.text == "": Label { x: 44px; text: "Search YouTube"; color: Theme.faint; font-size: 14px; }
+                    }
+                }
+                Rectangle {
+                    if Linen.page == 0: FeedPage { }
+                    if Linen.page == 1: SubsPage { }
+                    if Linen.page == 3: SearchPage { }
+                    if Linen.page == 4: ChannelPage { }
+                    if Linen.page == 5: PlaylistPage { }
+                    if Linen.page == 6: SettingsPage { }
+                    if Linen.page == 8: LibraryPage { }
+                    watch := WatchPage { visible: Linen.page == 2; }
+                    mini := MiniPlayer {
+                        x: parent.width - self.width - 20px;
+                        y: parent.height - self.height - 20px;
+                        visible: Watch.mini && Linen.page != 2 && Linen.page != 7;
+                    }
+                }
+            }
+        }
+        if Linen.save-open: SaveDialog { }
+        // the first-start welcome covers everything
+        if Linen.page == 7: Onboarding { }
+    }
+}
