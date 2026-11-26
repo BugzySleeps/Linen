@@ -156,6 +156,23 @@ Or just run it from the folder: `cargo run`.
 
 Thank you to all of them. Linen would not exist without these projects.
 
+## License
+
+Linen is free and open source under the **[GNU GPL v3.0 or later](LICENSE)**.
+Copyright © 2026 Bugzy.
+
+You're welcome to use it, study it, change it and share it. If you share or sell a
+changed version, or use Linen's code in your own app, that app must also be released
+under the GPL with its full source code, and keep the copyright notices. Linen's code
+can't end up in a closed-source product.
+
+The **Linen name and the thread logo** are not covered by the GPL: they belong to Bugzy and
+identify the official app. Copies and forks need their own name and logo. See
+[TRADEMARKS.md](TRADEMARKS.md).
+
+The bundled fonts keep their own licenses: Manrope (SIL Open Font License) and
+Material Symbols (Apache 2.0), in `app/ui/fonts/`.
+
 ## Status
 
 Linen is young and moving fast. It's used every day, but expect rough edges. Bug reports and

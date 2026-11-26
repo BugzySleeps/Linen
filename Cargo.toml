@@ -5,6 +5,9 @@ members = ["crates/core", "crates/video", "app"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/BugzySleeps/Linen"
+homepage = "https://bugzysleeps.github.io/Linen/"
 
 [workspace.dependencies]
 linen-video = { path = "crates/video" }
