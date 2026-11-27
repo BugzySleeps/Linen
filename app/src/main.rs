@@ -1648,6 +1648,10 @@ fn main() -> Result<()> {
     if let Ok(id) = std::env::var("LINEN_DOWNLOAD") {
         state.borrow_mut().download(&ui, &id);
     }
+    // LINEN_FOLLOW=<channel id>: follow it (as the Follow button does)
+    if let Ok(c) = std::env::var("LINEN_FOLLOW") {
+        state.borrow_mut().follow(&ui, c, true);
+    }
     // LINEN_PLAYLIST=<id>: open that playlist
     if let Ok(p) = std::env::var("LINEN_PLAYLIST") {
         state.borrow_mut().open_playlist(&ui, p);
