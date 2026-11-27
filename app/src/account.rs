@@ -183,9 +183,9 @@ impl State {
     /// Google's "add another account" page in Firefox (then "Look again" here).
     pub fn open_firefox(&self) {
         const ADD: &str = "https://accounts.google.com/AddSession?continue=https%3A%2F%2Fwww.youtube.com%2F";
-        let ok = std::process::Command::new("firefox").arg(ADD).spawn().is_ok();
+        let ok = !cfg!(windows) && std::process::Command::new("firefox").arg(ADD).spawn().is_ok();
         if !ok {
-            let _ = std::process::Command::new("xdg-open").arg(ADD).spawn();
+            let _ = crate::ytdlp::open_external(ADD.as_ref());
         }
     }
 

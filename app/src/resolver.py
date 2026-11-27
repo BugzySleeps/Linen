@@ -136,6 +136,9 @@ def warm_solver():
                     p = subprocess.Popen(
                         [self.runtime_info.path, "--permission", "-e", SOLVER],
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                        encoding="utf-8",
+                        # Windows: no console window for it
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                     )
                     init = self._lib_script.code + "\nObject.assign(globalThis, lib);\n" + self._core_script.code
                     p.stdin.write(json.dumps({"init": init}) + "\n")

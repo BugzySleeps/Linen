@@ -38,6 +38,8 @@ pub struct Identity {
 /// Firefox-family profile folders that have a cookie store, newest first.
 pub fn firefox_profiles() -> Vec<PathBuf> {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    // Windows: %APPDATA%\<browser>\Profiles
+    let appdata = directories::BaseDirs::new().map(|b| b.config_dir().to_path_buf()).unwrap_or_default();
     let roots = [
         home.join(".config/mozilla/firefox"),
         home.join(".mozilla/firefox"),
@@ -45,6 +47,10 @@ pub fn firefox_profiles() -> Vec<PathBuf> {
         home.join(".config/librewolf/librewolf"),
         home.join(".floorp"),
         home.join(".zen"),
+        appdata.join("Mozilla/Firefox/Profiles"),
+        appdata.join("librewolf/Profiles"),
+        appdata.join("Floorp/Profiles"),
+        appdata.join("zen/Profiles"),
     ];
     let mut out: Vec<(std::time::SystemTime, PathBuf)> = vec![];
     for root in roots {

@@ -1,3 +1,6 @@
+// Windows: a normal app, without a console window behind it
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod account;
 mod calm;
 mod comments;
@@ -956,7 +959,14 @@ impl State {
 }
 
 fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    let mut log = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"));
+    // Windows has no terminal behind the app: the log goes to a file
+    if cfg!(windows) {
+        if let Ok(f) = std::fs::File::create(linen_core::paths::data_dir().join("linen.log")) {
+            log.target(env_logger::Target::Pipe(Box::new(f)));
+        }
+    }
+    log.init();
     let ui = App::new()?;
     slint::set_xdg_app_id("linen")?;
 
@@ -1016,7 +1026,7 @@ fn main() -> Result<()> {
                 }
             }
         });
-        resolver::Resolver::start(&ytdlp::path().to_string_lossy(), format(), js.as_deref(), atx)
+        resolver::Resolver::start(&ytdlp::module_path().to_string_lossy(), format(), js.as_deref(), atx)
     };
     let feed_model = Rc::new(VecModel::<VideoItem>::default());
     ui.global::<Linen>().set_feed(ModelRc::from(feed_model.clone()));

@@ -356,7 +356,7 @@ impl State {
     }
 
     pub fn open_downloads_folder(&self) {
-        let _ = Command::new("xdg-open").arg(linen_core::paths::downloads_dir()).spawn();
+        let _ = crate::ytdlp::open_external(linen_core::paths::downloads_dir().as_os_str());
     }
 
     // ---- audio only ----
@@ -408,6 +408,7 @@ fn start_download(id: String, slot: Arc<Mutex<Option<Child>>>, cancel: Arc<Atomi
         };
         let dir = linen_core::paths::downloads_dir();
         let mut c = Command::new(crate::ytdlp::path());
+        crate::ytdlp::quiet(&mut c);
         c.args(["--ignore-config", "--no-playlist", "--newline", "--progress", "--no-simulate"])
             .args(["-f", crate::format(), "--merge-output-format", "mkv", "--embed-metadata", "--embed-chapters"])
             .args(["--progress-template", "download:LINENPROG %(info.format_id)s %(progress.downloaded_bytes)s %(progress.total_bytes)s %(progress.total_bytes_estimate)s"])

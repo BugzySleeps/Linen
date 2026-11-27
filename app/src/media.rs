@@ -3,8 +3,10 @@
 //! screens) show what's playing with its picture and controls.
 
 use std::sync::mpsc::Sender;
+#[cfg(not(windows))]
 use std::time::Duration;
 
+#[cfg(not(windows))]
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig, SeekDirection};
 
 use crate::Msg;
@@ -23,10 +25,12 @@ pub enum Command {
     Raise,
 }
 
+#[cfg(not(windows))]
 pub struct Media {
     controls: MediaControls,
 }
 
+#[cfg(not(windows))]
 impl Media {
     pub fn start(tx: Sender<Msg>) -> Option<Self> {
         let config = PlatformConfig { dbus_name: "linen", display_name: "Linen", hwnd: None };
@@ -73,4 +77,18 @@ impl Media {
     pub fn stopped(&mut self) {
         let _ = self.controls.set_playback(MediaPlayback::Stopped);
     }
+}
+
+/// Windows: the media keys come later (Windows wants the window's handle first).
+#[cfg(windows)]
+pub struct Media;
+
+#[cfg(windows)]
+impl Media {
+    pub fn start(_tx: Sender<Msg>) -> Option<Self> {
+        None
+    }
+    pub fn now_playing(&mut self, _id: &str, _title: &str, _channel: &str, _duration: f64) {}
+    pub fn state(&mut self, _playing: bool, _position: f64) {}
+    pub fn stopped(&mut self) {}
 }

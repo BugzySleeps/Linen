@@ -13,8 +13,28 @@ use libmpv2::Mpv;
 use libmpv2::render::{OpenGLInitParams, RenderContext, RenderParam, RenderParamApiType, mpv_render_update};
 
 /// mpv asks for OpenGL functions whenever it needs them (also later, e.g. when
-/// hardware decoding starts), so it gets EGL's lookup directly rather than a
-/// callback that's only valid during one frame. Slint uses EGL on Wayland.
+/// hardware decoding starts), so it gets the system's lookup directly rather than a
+/// callback that's only valid during one frame. Slint uses EGL on Wayland, WGL on Windows.
+#[cfg(windows)]
+fn egl_proc(name: &str) -> *mut c_void {
+    type GetProc = unsafe extern "system" fn(*const std::os::raw::c_char) -> *mut c_void;
+    static GL: OnceLock<Option<(libloading::Library, GetProc)>> = OnceLock::new();
+    let gl = GL.get_or_init(|| unsafe {
+        let lib = libloading::Library::new("opengl32.dll").ok()?;
+        let f: GetProc = *lib.get::<GetProc>(b"wglGetProcAddress\0").ok()?;
+        Some((lib, f))
+    });
+    let (Some((lib, f)), Ok(c)) = (gl, CString::new(name)) else { return std::ptr::null_mut() };
+    // wglGetProcAddress only knows newer functions (and may answer 1, 2, 3 or -1 for
+    // "no"); OpenGL 1.1 ones come straight from opengl32.dll
+    let p = unsafe { f(c.as_ptr()) };
+    if !matches!(p as isize, -1 | 0..=3) {
+        return p;
+    }
+    unsafe { lib.get::<*mut c_void>(c.as_bytes_with_nul()).map(|s| *s).unwrap_or(std::ptr::null_mut()) }
+}
+
+#[cfg(not(windows))]
 fn egl_proc(name: &str) -> *mut c_void {
     type GetProc = unsafe extern "C" fn(*const std::os::raw::c_char) -> *mut c_void;
     static EGL: OnceLock<Option<(libloading::Library, GetProc)>> = OnceLock::new();

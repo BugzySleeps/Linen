@@ -69,7 +69,7 @@ pub struct Resolver {
 const SCRIPT: &str = include_str!("resolver.py");
 
 fn spawn_helper(script: &std::path::Path, ytdlp: &str, fmt: &str, js: &str, parallel: usize) -> Option<Child> {
-    Command::new("python3")
+    crate::ytdlp::quiet(&mut Command::new(crate::ytdlp::python()))
         .arg("-I")
         .arg(script)
         .args([ytdlp, fmt, js, &parallel.to_string()])
@@ -77,7 +77,7 @@ fn spawn_helper(script: &std::path::Path, ytdlp: &str, fmt: &str, js: &str, para
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| log::error!("resolver: can't start python3: {e}"))
+        .map_err(|e| log::error!("resolver: can't start Python: {e}"))
         .ok()
 }
 
@@ -117,6 +117,14 @@ fn worker(name: &'static str, parallel: usize, rx: Receiver<String>, answer: Sen
                 read_answers(name, c.stdout.take()?, pending.clone(), answer.clone());
                 Some(c)
             };
+            // the very first start: yt-dlp may still be downloading
+            let module = std::path::Path::new(&ytdlp);
+            for _ in 0..180 {
+                if module.is_file() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
             // start right away, so Python and yt-dlp are loaded before the first click
             let mut child = start(&pending);
             for line in rx {

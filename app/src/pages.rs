@@ -983,7 +983,7 @@ impl State {
                 } else {
                     // everything else opens in your browser (paused here meanwhile)
                     let _ = self.mpv.set_property("pause", true);
-                    if let Err(e) = std::process::Command::new("xdg-open").arg(&u).spawn() {
+                    if let Err(e) = crate::ytdlp::open_external(u.as_ref()) {
                         log::warn!("couldn't open {u}: {e}");
                     }
                 }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Linen — YouTube, calmly.</title>
-<meta name="description" content="Linen is a native YouTube client for Linux: videos open in under a second, sponsor segments are skipped, clickbait is calmed, and there are no ads, Shorts or autoplay.">
+<meta name="description" content="Linen is a native YouTube client for Linux and Windows: videos open in under a second, sponsor segments are skipped, clickbait is calmed, and there are no ads, Shorts or autoplay.">
 <meta property="og:title" content="Linen — YouTube, calmly.">
 <meta property="og:description" content="A native, fast, quiet YouTube client for Linux. No browser, no ads, no Shorts, no autoplay.">
 <meta property="og:image" content="https://bugzysleeps.github.io/Linen/shots/feed.webp">
@@ -175,9 +175,9 @@ footer a{color:var(--dim)}
   <div class="wrap">
     <svg class="mark hero-mark" viewBox="-100 -94 200 200" aria-hidden="true"><path class="tri" d="M-26.06,-43.00 Q-26.06,-65.00 -7.01,-54.00 L57.07,-17.00 Q76.13,-6.00 57.07,5.00 L-7.01,42.00 Q-26.06,53.00 -26.06,31.00 Z" pathLength="1" fill="none" stroke="currentColor" stroke-width="14" stroke-linejoin="round"/><path class="tail" d="M -31,53 C -40,78 -70,74 -66,52 C -63,36 -40,44 -52,70" pathLength="1" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"/></svg>
     <h1>YouTube, <em>calmly.</em></h1>
-    <p class="lead">Linen is a native YouTube client for Linux. Videos open in under a second, the filler gets skipped, and everything built to keep you scrolling is simply gone.</p>
+    <p class="lead">Linen is a native YouTube client for Linux and Windows. Videos open in under a second, the filler gets skipped, and everything built to keep you scrolling is simply gone.</p>
     <div class="cta">
-      <a class="btn primary" href="#install">Get Linen for Linux</a>
+      <a class="btn primary" href="#install">Get Linen for Linux &amp; Windows</a>
       <a class="btn" href="https://github.com/BugzySleeps/Linen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>Star on GitHub</a>
     </div>
     <div class="nots"><span><b>No</b> ads</span><span><b>No</b> Shorts</span><span><b>No</b> autoplay</span><span><b>No</b> browser</span><span><b>No</b> account needed</span><span><b>No</b> tracking</span></div>
@@ -260,7 +260,10 @@ footer a{color:var(--dim)}
       <div>
         <span class="kicker">Install</span>
         <h2>Ready in a few minutes.</h2>
-        <p class="sub">Linen runs on Linux. For now it builds from source, with one command.</p>
+        <p class="sub"><b>Windows:</b> download, unzip, double-click. Everything Linen needs is in the folder.</p>
+        <p style="margin:22px 0 0"><a class="btn primary" href="https://github.com/BugzySleeps/Linen/releases/latest/download/Linen-windows-x64.zip">Download for Windows (zip)</a></p>
+        <p class="note">Windows 10 or 11, 64-bit. Not code-signed yet: if Windows warns, choose More info, then Run anyway.</p>
+        <p class="sub" style="margin-top:26px"><b>Linux:</b> it builds from source with one command.</p>
         <ul class="reqs">
           <li><b>Rust 1.85+</b>from rustup.rs</li>
           <li><b>mpv with libmpv</b>for playback (VA-API for hardware decoding)</li>

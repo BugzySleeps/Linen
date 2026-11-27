@@ -6,7 +6,7 @@
 
 ### YouTube, calmly.
 
-A native YouTube client for Linux that opens videos in under a second, skips the filler,
+A native YouTube client for Linux and Windows that opens videos in under a second, skips the filler,
 and leaves out everything designed to keep you scrolling.
 
 **No browser. No ads. No Shorts. No autoplay. No account needed.**
@@ -104,8 +104,21 @@ It shows you the channels you chose, cleans up what you see, and gets out of the
 
 ## Install
 
-Linen runs on **Linux** (made and tested on Wayland). Packages are coming; for now, build it from source.
-It takes a few minutes.
+### Windows
+
+1. Download **[Linen-windows-x64.zip](https://github.com/BugzySleeps/Linen/releases/latest/download/Linen-windows-x64.zip)**
+   from the [latest release](https://github.com/BugzySleeps/Linen/releases/latest).
+2. Unzip it anywhere (for example into Documents) and double-click **Linen.exe**.
+
+Nothing to install: the folder carries everything Linen needs (libmpv, Python and Node).
+Windows 10 or 11, 64-bit. Windows may warn that the app is from an unknown publisher,
+because it isn't code-signed yet: choose **More info → Run anyway**.
+Media keys aren't supported on Windows yet.
+
+### Linux
+
+Linen is made and tested on Linux (Wayland). Packages are coming; for now, build it from
+source. It takes a few minutes.
 
 **You need:**
 
